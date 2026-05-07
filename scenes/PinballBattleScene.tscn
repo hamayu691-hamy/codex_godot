@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://dqq6k00rvb77v"]
+[gd_scene load_steps=11 format=3 uid="uid://dqq6k00rvb77v"]
 
 [ext_resource type="Script" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
 
@@ -17,14 +17,20 @@ size = Vector2(110, 16)
 [sub_resource type="RectangleShape2D" id="5"]
 size = Vector2(380, 20)
 
+[sub_resource type="PhysicsMaterial" id="6"]
+bounce = 0.75
+friction = 0.05
+
 [node name="PinballBattleScene" type="Node2D"]
 script = ExtResource("1")
 
 [node name="Ball" type="RigidBody2D" parent="."]
 position = Vector2(200, 120)
-gravity_scale = 0.0
-linear_damp = 0.05
-angular_damp = 0.1
+mass = 0.4
+gravity_scale = 0.8
+linear_damp = 0.15
+angular_damp = 0.2
+physics_material_override = SubResource("6")
 contact_monitor = true
 max_contacts_reported = 8
 
@@ -36,6 +42,7 @@ color = Color(0.98, 0.88, 0.2, 1)
 polygon = PackedVector2Array(0, -12, 8, -9, 12, 0, 8, 9, 0, 12, -8, 9, -12, 0, -8, -9)
 
 [node name="LeftWall" type="StaticBody2D" parent="."]
+physics_material_override = SubResource("6")
 position = Vector2(20, 300)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LeftWall"]
@@ -46,6 +53,7 @@ color = Color(0.4, 0.45, 0.55, 1)
 polygon = PackedVector2Array(-10, -350, 10, -350, 10, 350, -10, 350)
 
 [node name="RightWall" type="StaticBody2D" parent="."]
+physics_material_override = SubResource("6")
 position = Vector2(380, 300)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="RightWall"]
@@ -56,6 +64,7 @@ color = Color(0.4, 0.45, 0.55, 1)
 polygon = PackedVector2Array(-10, -350, 10, -350, 10, 350, -10, 350)
 
 [node name="TopWall" type="StaticBody2D" parent="."]
+physics_material_override = SubResource("6")
 position = Vector2(200, 20)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TopWall"]
