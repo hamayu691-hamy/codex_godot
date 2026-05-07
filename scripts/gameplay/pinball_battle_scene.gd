@@ -6,29 +6,41 @@ const LEFT_FLIPPER_ACTIVE_ROTATION: float = -1.0
 const RIGHT_FLIPPER_REST_ROTATION: float = 0.35
 const RIGHT_FLIPPER_ACTIVE_ROTATION: float = 1.0
 const FLIPPER_ROTATE_SPEED: float = 14.0
+const BALL_GRAVITY: float = 980.0
+const BALL_MAX_FALL_SPEED: float = 1200.0
+const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(0.0, -280.0)
+const FLIPPER_HIT_IMPULSE: float = 560.0
 
 @onready var ball: RigidBody2D = $Ball
 @onready var left_flipper: StaticBody2D = $LeftFlipper
 @onready var right_flipper: StaticBody2D = $RightFlipper
 @onready var drain: Area2D = $Drain
 
+var _manual_ball_velocity: Vector2 = Vector2.ZERO
+var _left_pressed: bool = false
+var _right_pressed: bool = false
+
 func _ready() -> void:
 	left_flipper.rotation = LEFT_FLIPPER_REST_ROTATION
 	right_flipper.rotation = RIGHT_FLIPPER_REST_ROTATION
 	drain.body_entered.connect(_on_drain_body_entered)
+	ball.body_entered.connect(_on_ball_body_entered)
 	reset_ball()
 
 func _physics_process(delta: float) -> void:
-	var left_pressed: bool = Input.is_key_pressed(KEY_LEFT)
-	var right_pressed: bool = Input.is_key_pressed(KEY_RIGHT)
+	_left_pressed = Input.is_key_pressed(KEY_LEFT)
+	_right_pressed = Input.is_key_pressed(KEY_RIGHT)
 	var left_target: float = LEFT_FLIPPER_REST_ROTATION
 	var right_target: float = RIGHT_FLIPPER_REST_ROTATION
-	if left_pressed:
+	if _left_pressed:
 		left_target = LEFT_FLIPPER_ACTIVE_ROTATION
-	if right_pressed:
+	if _right_pressed:
 		right_target = RIGHT_FLIPPER_ACTIVE_ROTATION
 	left_flipper.rotation = move_toward(left_flipper.rotation, left_target, FLIPPER_ROTATE_SPEED * delta)
 	right_flipper.rotation = move_toward(right_flipper.rotation, right_target, FLIPPER_ROTATE_SPEED * delta)
+
+	_manual_ball_velocity.y = min(_manual_ball_velocity.y + BALL_GRAVITY * delta, BALL_MAX_FALL_SPEED)
+	ball.linear_velocity = _manual_ball_velocity
 	if Input.is_key_pressed(KEY_R):
 		reset_ball()
 
@@ -36,9 +48,27 @@ func _on_drain_body_entered(body: Node2D) -> void:
 	if body == ball:
 		reset_ball()
 
+func _on_ball_body_entered(body: Node) -> void:
+	if body == left_flipper and _left_pressed:
+		_apply_flipper_impulse(left_flipper, -1.0)
+	elif body == right_flipper and _right_pressed:
+		_apply_flipper_impulse(right_flipper, 1.0)
+
+func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
+	var pivot_to_ball: Vector2 = (ball.global_position - flipper.global_position).normalized()
+	var impulse_direction: Vector2 = Vector2(0.4 * side, -1.0).normalized()
+	if pivot_to_ball != Vector2.ZERO:
+		impulse_direction = (impulse_direction + pivot_to_ball * 0.35).normalized()
+	var impulse: Vector2 = impulse_direction * FLIPPER_HIT_IMPULSE
+	ball.apply_central_impulse(impulse)
+	_manual_ball_velocity = ball.linear_velocity
+
 func reset_ball() -> void:
 	ball.sleeping = true
 	ball.global_position = BALL_START_POSITION
 	ball.linear_velocity = Vector2.ZERO
 	ball.angular_velocity = 0.0
+	_manual_ball_velocity = Vector2.ZERO
 	ball.sleeping = false
+	ball.apply_central_impulse(BALL_LAUNCH_IMPULSE)
+	_manual_ball_velocity = ball.linear_velocity
