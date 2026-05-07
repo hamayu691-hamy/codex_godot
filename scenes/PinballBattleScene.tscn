@@ -1,0 +1,68 @@
+[gd_scene load_steps=10 format=3 uid="uid://dqq6k00rvb77v"]
+
+[ext_resource type="Script" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(24, 24)
+
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(20, 700)
+
+[sub_resource type="RectangleShape2D" id="3"]
+size = Vector2(400, 20)
+
+[sub_resource type="RectangleShape2D" id="4"]
+size = Vector2(110, 16)
+
+[sub_resource type="RectangleShape2D" id="5"]
+size = Vector2(380, 20)
+
+[node name="PinballBattleScene" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Ball" type="RigidBody2D" parent="."]
+position = Vector2(200, 120)
+gravity_scale = 1.0
+linear_damp = 0.05
+angular_damp = 0.1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ball"]
+shape = SubResource("1")
+
+[node name="LeftWall" type="StaticBody2D" parent="."]
+position = Vector2(20, 300)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LeftWall"]
+shape = SubResource("2")
+
+[node name="RightWall" type="StaticBody2D" parent="."]
+position = Vector2(380, 300)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RightWall"]
+shape = SubResource("2")
+
+[node name="TopWall" type="StaticBody2D" parent="."]
+position = Vector2(200, 20)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TopWall"]
+shape = SubResource("3")
+
+[node name="LeftFlipper" type="StaticBody2D" parent="."]
+position = Vector2(145, 540)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LeftFlipper"]
+position = Vector2(45, 0)
+shape = SubResource("4")
+
+[node name="RightFlipper" type="StaticBody2D" parent="."]
+position = Vector2(255, 540)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RightFlipper"]
+position = Vector2(-45, 0)
+shape = SubResource("4")
+
+[node name="Drain" type="Area2D" parent="."]
+position = Vector2(200, 620)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Drain"]
+shape = SubResource("5")
