@@ -9,6 +9,8 @@ const FLIPPER_ROTATE_SPEED: float = 14.0
 const BALL_MAX_SPEED: float = 1350.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const FLIPPER_HIT_IMPULSE: float = 1600.0
+# Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
+const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 
 @onready var ball: RigidBody2D = $Ball
 @onready var left_flipper: StaticBody2D = $LeftFlipper
@@ -17,10 +19,16 @@ const FLIPPER_HIT_IMPULSE: float = 1600.0
 
 var _left_pressed: bool = false
 var _right_pressed: bool = false
+var _previous_left_rotation: float = LEFT_FLIPPER_REST_ROTATION
+var _previous_right_rotation: float = RIGHT_FLIPPER_REST_ROTATION
+var _left_angular_speed: float = 0.0
+var _right_angular_speed: float = 0.0
 
 func _ready() -> void:
 	left_flipper.rotation = LEFT_FLIPPER_REST_ROTATION
 	right_flipper.rotation = RIGHT_FLIPPER_REST_ROTATION
+	_previous_left_rotation = left_flipper.rotation
+	_previous_right_rotation = right_flipper.rotation
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
 	reset_ball()
@@ -37,6 +45,17 @@ func _physics_process(delta: float) -> void:
 	left_flipper.rotation = move_toward(left_flipper.rotation, left_target, FLIPPER_ROTATE_SPEED * delta)
 	right_flipper.rotation = move_toward(right_flipper.rotation, right_target, FLIPPER_ROTATE_SPEED * delta)
 
+	var left_rotation_delta: float = left_flipper.rotation - _previous_left_rotation
+	var right_rotation_delta: float = right_flipper.rotation - _previous_right_rotation
+	if delta > 0.0:
+		_left_angular_speed = left_rotation_delta / delta
+		_right_angular_speed = right_rotation_delta / delta
+	else:
+		_left_angular_speed = 0.0
+		_right_angular_speed = 0.0
+	_previous_left_rotation = left_flipper.rotation
+	_previous_right_rotation = right_flipper.rotation
+
 	var speed: float = ball.linear_velocity.length()
 	if speed > BALL_MAX_SPEED:
 		ball.linear_velocity = ball.linear_velocity.normalized() * BALL_MAX_SPEED
@@ -48,10 +67,18 @@ func _on_drain_body_entered(body: Node2D) -> void:
 		reset_ball()
 
 func _on_ball_body_entered(body: Node) -> void:
-	if body == left_flipper and _left_pressed:
+	if body == left_flipper and _is_left_flipper_striking():
 		_apply_flipper_impulse(left_flipper, -1.0)
-	elif body == right_flipper and _right_pressed:
+	elif body == right_flipper and _is_right_flipper_striking():
 		_apply_flipper_impulse(right_flipper, 1.0)
+
+func _is_left_flipper_striking() -> bool:
+	# Left flipper striking direction: rotation gets smaller (negative angular speed).
+	return _left_angular_speed <= -FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
+
+func _is_right_flipper_striking() -> bool:
+	# Right flipper striking direction: rotation gets larger (positive angular speed).
+	return _right_angular_speed >= FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
 
 func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
 	var pivot_to_ball: Vector2 = (ball.global_position - flipper.global_position).normalized()
