@@ -29,11 +29,19 @@ angular_damp = 0.1
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ball"]
 shape = SubResource("1")
 
+[node name="BallVisual" type="Polygon2D" parent="Ball"]
+color = Color(0.98, 0.88, 0.2, 1)
+polygon = PackedVector2Array(0, -12, 8, -9, 12, 0, 8, 9, 0, 12, -8, 9, -12, 0, -8, -9)
+
 [node name="LeftWall" type="StaticBody2D" parent="."]
 position = Vector2(20, 300)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LeftWall"]
 shape = SubResource("2")
+
+[node name="WallVisual" type="Polygon2D" parent="LeftWall"]
+color = Color(0.4, 0.45, 0.55, 1)
+polygon = PackedVector2Array(-10, -350, 10, -350, 10, 350, -10, 350)
 
 [node name="RightWall" type="StaticBody2D" parent="."]
 position = Vector2(380, 300)
@@ -41,11 +49,19 @@ position = Vector2(380, 300)
 [node name="CollisionShape2D" type="CollisionShape2D" parent="RightWall"]
 shape = SubResource("2")
 
+[node name="WallVisual" type="Polygon2D" parent="RightWall"]
+color = Color(0.4, 0.45, 0.55, 1)
+polygon = PackedVector2Array(-10, -350, 10, -350, 10, 350, -10, 350)
+
 [node name="TopWall" type="StaticBody2D" parent="."]
 position = Vector2(200, 20)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="TopWall"]
 shape = SubResource("3")
+
+[node name="WallVisual" type="Polygon2D" parent="TopWall"]
+color = Color(0.4, 0.45, 0.55, 1)
+polygon = PackedVector2Array(-200, -10, 200, -10, 200, 10, -200, 10)
 
 [node name="LeftFlipper" type="StaticBody2D" parent="."]
 position = Vector2(145, 540)
@@ -54,6 +70,11 @@ position = Vector2(145, 540)
 position = Vector2(45, 0)
 shape = SubResource("4")
 
+[node name="FlipperVisual" type="Polygon2D" parent="LeftFlipper"]
+position = Vector2(45, 0)
+color = Color(0.95, 0.5, 0.35, 1)
+polygon = PackedVector2Array(-55, -8, 55, -8, 55, 8, -55, 8)
+
 [node name="RightFlipper" type="StaticBody2D" parent="."]
 position = Vector2(255, 540)
 
@@ -61,8 +82,17 @@ position = Vector2(255, 540)
 position = Vector2(-45, 0)
 shape = SubResource("4")
 
+[node name="FlipperVisual" type="Polygon2D" parent="RightFlipper"]
+position = Vector2(-45, 0)
+color = Color(0.95, 0.5, 0.35, 1)
+polygon = PackedVector2Array(-55, -8, 55, -8, 55, 8, -55, 8)
+
 [node name="Drain" type="Area2D" parent="."]
 position = Vector2(200, 620)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Drain"]
 shape = SubResource("5")
+
+[node name="DrainVisual" type="Polygon2D" parent="Drain"]
+color = Color(0.8, 0.2, 0.25, 0.65)
+polygon = PackedVector2Array(-190, -10, 190, -10, 190, 10, -190, 10)
