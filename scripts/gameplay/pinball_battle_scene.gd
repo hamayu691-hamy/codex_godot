@@ -9,6 +9,11 @@ const FLIPPER_ROTATE_SPEED: float = 14.0
 const BALL_MAX_SPEED: float = 1350.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const FLIPPER_HIT_IMPULSE: float = 1600.0
+const BUMPER_HIT_IMPULSE: float = 130.0
+const BUMPER_HIT_SCALE: Vector2 = Vector2(1.15, 1.15)
+const BUMPER_HIT_FLASH_COLOR: Color = Color(0.75, 1.0, 1.0, 1.0)
+const DAMAGE_POPUP_DURATION: float = 0.55
+const DAMAGE_POPUP_RISE: float = 24.0
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
@@ -30,6 +35,8 @@ var _left_angular_speed: float = 0.0
 var _right_angular_speed: float = 0.0
 var _enemy_hp: int = ENEMY_HP_INITIAL
 var _is_victory: bool = false
+var _damage_popups: Array[Dictionary] = []
+
 
 func _ready() -> void:
 	left_flipper.rotation = LEFT_FLIPPER_REST_ROTATION
@@ -73,6 +80,7 @@ func _physics_process(delta: float) -> void:
 		ball.linear_velocity = ball.linear_velocity.normalized() * BALL_MAX_SPEED
 	if Input.is_key_pressed(KEY_R):
 		_reset_battle()
+	_update_damage_popups(delta)
 
 func _on_drain_body_entered(body: Node2D) -> void:
 	if body == ball:
@@ -118,10 +126,63 @@ func _on_bumper_body_entered(body: Node2D, bumper: Area2D) -> void:
 	if body != ball:
 		return
 	var damage: int = int(bumper.get_meta("damage", 1))
+	_apply_bumper_hit_feedback(bumper, damage)
 	_enemy_hp -= damage
 	_update_enemy_hp_label()
 	if _enemy_hp <= 0:
 		_enter_victory_state()
+
+func _apply_bumper_hit_feedback(bumper: Area2D, damage: int) -> void:
+	var hit_direction: Vector2 = ball.global_position - bumper.global_position
+	if hit_direction.length_squared() <= 0.0001:
+		hit_direction = Vector2.UP
+	else:
+		hit_direction = hit_direction.normalized()
+	ball.apply_central_impulse(hit_direction * BUMPER_HIT_IMPULSE)
+
+	var bumper_visual: CanvasItem = bumper.get_node_or_null("BumperVisual")
+	if bumper_visual != null:
+		var flash_tween: Tween = create_tween()
+		flash_tween.tween_property(bumper_visual, "modulate", BUMPER_HIT_FLASH_COLOR, 0.05)
+		flash_tween.tween_property(bumper_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.1)
+	var scale_tween: Tween = create_tween()
+	scale_tween.tween_property(bumper, "scale", BUMPER_HIT_SCALE, 0.06)
+	scale_tween.tween_property(bumper, "scale", Vector2.ONE, 0.1)
+
+	_spawn_damage_popup(damage)
+
+func _spawn_damage_popup(damage: int) -> void:
+	var popup_label: Label = Label.new()
+	popup_label.text = "-%d" % damage
+	popup_label.modulate = Color(1.0, 0.85, 0.45, 1.0)
+	popup_label.theme_override_font_sizes.font_size = 20
+	popup_label.top_level = true
+	popup_label.global_position = enemy_hp_label.global_position + Vector2(145.0, 6.0)
+	add_child(popup_label)
+	_damage_popups.append({
+		"label": popup_label,
+		"elapsed": 0.0,
+		"start_position": popup_label.global_position,
+	})
+
+func _update_damage_popups(delta: float) -> void:
+	for index: int in range(_damage_popups.size() - 1, -1, -1):
+		var popup: Dictionary = _damage_popups[index]
+		var popup_label: Label = popup["label"]
+		if not is_instance_valid(popup_label):
+			_damage_popups.remove_at(index)
+			continue
+		var elapsed: float = float(popup["elapsed"]) + delta
+		popup["elapsed"] = elapsed
+		var progress: float = min(elapsed / DAMAGE_POPUP_DURATION, 1.0)
+		var start_position: Vector2 = popup["start_position"]
+		popup_label.global_position = start_position + Vector2(0.0, -DAMAGE_POPUP_RISE * progress)
+		var alpha: float = 1.0 - progress
+		popup_label.modulate.a = alpha
+		_damage_popups[index] = popup
+		if progress >= 1.0:
+			popup_label.queue_free()
+			_damage_popups.remove_at(index)
 
 func _enter_victory_state() -> void:
 	_is_victory = true
