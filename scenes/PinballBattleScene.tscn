@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://dqq6k00rvb77v"]
+[gd_scene load_steps=15 format=3 uid="uid://dqq6k00rvb77v"]
 
 [ext_resource type="Script" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
 
@@ -20,6 +20,9 @@ size = Vector2(380, 20)
 [sub_resource type="PhysicsMaterial" id="6"]
 bounce = 0.75
 friction = 0.05
+
+[sub_resource type="CircleShape2D" id="7"]
+radius = 18.0
 
 [node name="PinballBattleScene" type="Node2D"]
 script = ExtResource("1")
@@ -107,3 +110,53 @@ shape = SubResource("5")
 [node name="DrainVisual" type="Polygon2D" parent="Drain"]
 color = Color(0.8, 0.2, 0.25, 0.65)
 polygon = PackedVector2Array(-190, -10, 190, -10, 190, 10, -190, 10)
+
+[node name="Bumper1" type="Area2D" parent="."]
+position = Vector2(130, 210)
+metadata/damage = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumper1"]
+shape = SubResource("7")
+
+[node name="BumperVisual" type="Polygon2D" parent="Bumper1"]
+color = Color(0.2, 0.9, 0.95, 1)
+polygon = PackedVector2Array(0, -18, 9, -15.5885, 15.5885, -9, 18, 0, 15.5885, 9, 9, 15.5885, 0, 18, -9, 15.5885, -15.5885, 9, -18, 0, -15.5885, -9, -9, -15.5885)
+
+[node name="Bumper2" type="Area2D" parent="."]
+position = Vector2(200, 165)
+metadata/damage = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumper2"]
+shape = SubResource("7")
+
+[node name="BumperVisual" type="Polygon2D" parent="Bumper2"]
+color = Color(0.2, 0.9, 0.95, 1)
+polygon = PackedVector2Array(0, -18, 9, -15.5885, 15.5885, -9, 18, 0, 15.5885, 9, 9, 15.5885, 0, 18, -9, 15.5885, -15.5885, 9, -18, 0, -15.5885, -9, -9, -15.5885)
+
+[node name="Bumper3" type="Area2D" parent="."]
+position = Vector2(270, 210)
+metadata/damage = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumper3"]
+shape = SubResource("7")
+
+[node name="BumperVisual" type="Polygon2D" parent="Bumper3"]
+color = Color(0.2, 0.9, 0.95, 1)
+polygon = PackedVector2Array(0, -18, 9, -15.5885, 15.5885, -9, 18, 0, 15.5885, 9, 9, 15.5885, 0, 18, -9, 15.5885, -15.5885, 9, -18, 0, -15.5885, -9, -9, -15.5885)
+
+[node name="EnemyHpLabel" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 46.0
+theme_override_font_sizes/font_size = 24
+text = "Enemy HP: 20"
+
+[node name="VictoryLabel" type="Label" parent="."]
+visible = false
+offset_left = 115.0
+offset_top = 260.0
+offset_right = 300.0
+offset_bottom = 322.0
+theme_override_font_sizes/font_size = 52
+text = "VICTORY"

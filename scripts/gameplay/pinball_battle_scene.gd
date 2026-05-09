@@ -11,11 +11,16 @@ const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const FLIPPER_HIT_IMPULSE: float = 1600.0
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
+const ENEMY_HP_INITIAL: int = 20
+const BUMPER_GROUP: StringName = &"bumpers"
 
 @onready var ball: RigidBody2D = $Ball
 @onready var left_flipper: StaticBody2D = $LeftFlipper
 @onready var right_flipper: StaticBody2D = $RightFlipper
 @onready var drain: Area2D = $Drain
+@onready var bumpers: Array[Area2D] = [$Bumper1, $Bumper2, $Bumper3]
+@onready var enemy_hp_label: Label = $EnemyHpLabel
+@onready var victory_label: Label = $VictoryLabel
 
 var _left_pressed: bool = false
 var _right_pressed: bool = false
@@ -23,6 +28,8 @@ var _previous_left_rotation: float = LEFT_FLIPPER_REST_ROTATION
 var _previous_right_rotation: float = RIGHT_FLIPPER_REST_ROTATION
 var _left_angular_speed: float = 0.0
 var _right_angular_speed: float = 0.0
+var _enemy_hp: int = ENEMY_HP_INITIAL
+var _is_victory: bool = false
 
 func _ready() -> void:
 	left_flipper.rotation = LEFT_FLIPPER_REST_ROTATION
@@ -31,6 +38,11 @@ func _ready() -> void:
 	_previous_right_rotation = right_flipper.rotation
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
+	for bumper: Area2D in bumpers:
+		bumper.add_to_group(BUMPER_GROUP)
+		bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
+	_update_enemy_hp_label()
+	victory_label.visible = false
 	reset_ball()
 
 func _physics_process(delta: float) -> void:
@@ -57,10 +69,10 @@ func _physics_process(delta: float) -> void:
 	_previous_right_rotation = right_flipper.rotation
 
 	var speed: float = ball.linear_velocity.length()
-	if speed > BALL_MAX_SPEED:
+	if speed > BALL_MAX_SPEED and not _is_victory:
 		ball.linear_velocity = ball.linear_velocity.normalized() * BALL_MAX_SPEED
 	if Input.is_key_pressed(KEY_R):
-		reset_ball()
+		_reset_battle()
 
 func _on_drain_body_entered(body: Node2D) -> void:
 	if body == ball:
@@ -81,6 +93,8 @@ func _is_right_flipper_striking() -> bool:
 	return _right_angular_speed >= FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
 
 func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
+	if _is_victory:
+		return
 	var pivot_to_ball: Vector2 = (ball.global_position - flipper.global_position).normalized()
 	var impulse_direction: Vector2 = Vector2(0.4 * side, -1.0).normalized()
 	if pivot_to_ball != Vector2.ZERO:
@@ -89,9 +103,42 @@ func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
 	ball.apply_central_impulse(impulse)
 
 func reset_ball() -> void:
+	if _is_victory:
+		return
 	ball.sleeping = true
 	ball.global_position = BALL_START_POSITION
 	ball.linear_velocity = Vector2.ZERO
 	ball.angular_velocity = 0.0
 	ball.sleeping = false
 	ball.apply_central_impulse(BALL_LAUNCH_IMPULSE)
+
+func _on_bumper_body_entered(body: Node2D, bumper: Area2D) -> void:
+	if _is_victory:
+		return
+	if body != ball:
+		return
+	var damage: int = int(bumper.get_meta("damage", 1))
+	_enemy_hp -= damage
+	_update_enemy_hp_label()
+	if _enemy_hp <= 0:
+		_enter_victory_state()
+
+func _enter_victory_state() -> void:
+	_is_victory = true
+	ball.sleeping = true
+	ball.linear_velocity = Vector2.ZERO
+	ball.angular_velocity = 0.0
+	victory_label.visible = true
+
+func _update_enemy_hp_label() -> void:
+	var current_hp: int = _enemy_hp
+	if current_hp < 0:
+		current_hp = 0
+	enemy_hp_label.text = "Enemy HP: %d" % current_hp
+
+func _reset_battle() -> void:
+	_is_victory = false
+	_enemy_hp = ENEMY_HP_INITIAL
+	_update_enemy_hp_label()
+	victory_label.visible = false
+	reset_ball()
