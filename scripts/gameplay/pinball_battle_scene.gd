@@ -155,7 +155,7 @@ func _spawn_damage_popup(damage: int) -> void:
 	var popup_label: Label = Label.new()
 	popup_label.text = "-%d" % damage
 	popup_label.modulate = Color(1.0, 0.85, 0.45, 1.0)
-	popup_label.theme_override_font_sizes.font_size = 20
+	popup_label.add_theme_font_size_override("font_size", 20)
 	popup_label.top_level = true
 	popup_label.global_position = enemy_hp_label.global_position + Vector2(145.0, 6.0)
 	add_child(popup_label)
