@@ -37,6 +37,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var right_flipper: StaticBody2D = $RightFlipper
 @onready var drain: Area2D = $Drain
 @onready var bumpers_root: Node = $Bumpers
+@onready var walls_root: Node2D = $Walls
 @onready var bumpers: Array[Bumper] = []
 @onready var enemy_hp_label: Label = $EnemyHpLabel
 @onready var victory_label: Label = $VictoryLabel
@@ -62,6 +63,54 @@ var bumper_configs: Array[Dictionary] = [
 	},
 ]
 
+var wall_configs: Array[Dictionary] = [
+	{
+		"name": "LeftWall",
+		"position": Vector2(20.0, 300.0),
+		"size": Vector2(20.0, 700.0),
+		"rotation": -0.08,
+		"color": Color(0.4, 0.45, 0.55, 1.0),
+		"bounce": 0.75,
+		"friction": 0.05,
+	},
+	{
+		"name": "RightWall",
+		"position": Vector2(380.0, 300.0),
+		"size": Vector2(20.0, 700.0),
+		"rotation": 0.08,
+		"color": Color(0.4, 0.45, 0.55, 1.0),
+		"bounce": 0.75,
+		"friction": 0.05,
+	},
+	{
+		"name": "TopWall",
+		"position": Vector2(200.0, 20.0),
+		"size": Vector2(400.0, 20.0),
+		"rotation": 0.0,
+		"color": Color(0.4, 0.45, 0.55, 1.0),
+		"bounce": 0.75,
+		"friction": 0.05,
+	},
+	{
+		"name": "LeftFlipperGuideWall",
+		"position": Vector2(118.0, 454.0),
+		"size": Vector2(240.0, 16.0),
+		"rotation": 0.9,
+		"color": Color(0.4, 0.45, 0.55, 1.0),
+		"bounce": 0.75,
+		"friction": 0.05,
+	},
+	{
+		"name": "RightFlipperGuideWall",
+		"position": Vector2(282.0, 454.0),
+		"size": Vector2(240.0, 16.0),
+		"rotation": -0.9,
+		"color": Color(0.4, 0.45, 0.55, 1.0),
+		"bounce": 0.75,
+		"friction": 0.05,
+	},
+]
+
 var _left_pressed: bool = false
 var _right_pressed: bool = false
 var _previous_left_rotation: float = LEFT_FLIPPER_REST_ROTATION
@@ -80,6 +129,7 @@ func _ready() -> void:
 	_previous_right_rotation = right_flipper.rotation
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
+	_spawn_walls()
 	_spawn_bumpers()
 	for bumper_node: Node in bumpers_root.get_children():
 		if bumper_node is Bumper:
@@ -118,6 +168,41 @@ func _spawn_bumpers() -> void:
 		bumper.add_child(bumper_visual)
 
 		bumpers_root.add_child(bumper)
+
+func _spawn_walls() -> void:
+	for child: Node in walls_root.get_children():
+		child.queue_free()
+	for config: Dictionary in wall_configs:
+		var wall: StaticBody2D = StaticBody2D.new()
+		wall.name = str(config.get("name", "Wall"))
+		wall.position = config.get("position", Vector2.ZERO)
+		wall.rotation = float(config.get("rotation", 0.0))
+
+		var physics_material: PhysicsMaterial = PhysicsMaterial.new()
+		physics_material.bounce = float(config.get("bounce", 0.0))
+		physics_material.friction = float(config.get("friction", 1.0))
+		wall.physics_material_override = physics_material
+
+		var size: Vector2 = config.get("size", Vector2(20.0, 20.0))
+		var collision_shape: CollisionShape2D = CollisionShape2D.new()
+		collision_shape.name = "CollisionShape2D"
+		var rectangle_shape: RectangleShape2D = RectangleShape2D.new()
+		rectangle_shape.size = size
+		collision_shape.shape = rectangle_shape
+		wall.add_child(collision_shape)
+
+		var wall_visual: Polygon2D = Polygon2D.new()
+		wall_visual.name = "WallVisual"
+		wall_visual.color = config.get("color", Color(0.4, 0.45, 0.55, 1.0))
+		wall_visual.polygon = PackedVector2Array([
+			Vector2(-size.x / 2.0, -size.y / 2.0),
+			Vector2(size.x / 2.0, -size.y / 2.0),
+			Vector2(size.x / 2.0, size.y / 2.0),
+			Vector2(-size.x / 2.0, size.y / 2.0),
+		])
+		wall.add_child(wall_visual)
+
+		walls_root.add_child(wall)
 
 func _physics_process(delta: float) -> void:
 	_left_pressed = Input.is_key_pressed(KEY_LEFT)
