@@ -9,9 +9,6 @@ const FLIPPER_ROTATE_SPEED: float = 14.0
 const BALL_MAX_SPEED: float = 1350.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const FLIPPER_HIT_IMPULSE: float = 1600.0
-const BUMPER_HIT_IMPULSE: float = 130.0
-const BUMPER_HIT_SCALE: Vector2 = Vector2(1.15, 1.15)
-const BUMPER_HIT_FLASH_COLOR: Color = Color(0.75, 1.0, 1.0, 1.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
 const DAMAGE_POPUP_RISE: float = 24.0
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
@@ -23,7 +20,8 @@ const BUMPER_GROUP: StringName = &"bumpers"
 @onready var left_flipper: StaticBody2D = $LeftFlipper
 @onready var right_flipper: StaticBody2D = $RightFlipper
 @onready var drain: Area2D = $Drain
-@onready var bumpers: Array[Area2D] = [$Bumper1, $Bumper2, $Bumper3]
+@onready var bumpers_root: Node = $Bumpers
+@onready var bumpers: Array[Bumper] = []
 @onready var enemy_hp_label: Label = $EnemyHpLabel
 @onready var victory_label: Label = $VictoryLabel
 
@@ -45,9 +43,13 @@ func _ready() -> void:
 	_previous_right_rotation = right_flipper.rotation
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
-	for bumper: Area2D in bumpers:
-		bumper.add_to_group(BUMPER_GROUP)
-		bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
+	for bumper_node: Node in bumpers_root.get_children():
+		if bumper_node is Bumper:
+			var bumper: Bumper = bumper_node
+			bumpers.append(bumper)
+			bumper.add_to_group(BUMPER_GROUP)
+			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
+			bumper.hit.connect(_on_bumper_hit)
 	_update_enemy_hp_label()
 	victory_label.visible = false
 	reset_ball()
@@ -120,36 +122,21 @@ func reset_ball() -> void:
 	ball.sleeping = false
 	ball.apply_central_impulse(BALL_LAUNCH_IMPULSE)
 
-func _on_bumper_body_entered(body: Node2D, bumper: Area2D) -> void:
+func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 	if _is_victory:
 		return
 	if body != ball:
 		return
-	var damage: int = int(bumper.get_meta("damage", 1))
-	_apply_bumper_hit_feedback(bumper, damage)
+	bumper.on_ball_entered(ball)
+
+func _on_bumper_hit(_bumper: Bumper, damage: int) -> void:
+	if _is_victory:
+		return
 	_enemy_hp -= damage
 	_update_enemy_hp_label()
+	_spawn_damage_popup(damage)
 	if _enemy_hp <= 0:
 		_enter_victory_state()
-
-func _apply_bumper_hit_feedback(bumper: Area2D, damage: int) -> void:
-	var hit_direction: Vector2 = ball.global_position - bumper.global_position
-	if hit_direction.length_squared() <= 0.0001:
-		hit_direction = Vector2.UP
-	else:
-		hit_direction = hit_direction.normalized()
-	ball.apply_central_impulse(hit_direction * BUMPER_HIT_IMPULSE)
-
-	var bumper_visual: CanvasItem = bumper.get_node_or_null("BumperVisual")
-	if bumper_visual != null:
-		var flash_tween: Tween = create_tween()
-		flash_tween.tween_property(bumper_visual, "modulate", BUMPER_HIT_FLASH_COLOR, 0.05)
-		flash_tween.tween_property(bumper_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.1)
-	var scale_tween: Tween = create_tween()
-	scale_tween.tween_property(bumper, "scale", BUMPER_HIT_SCALE, 0.06)
-	scale_tween.tween_property(bumper, "scale", Vector2.ONE, 0.1)
-
-	_spawn_damage_popup(damage)
 
 func _spawn_damage_popup(damage: int) -> void:
 	var popup_label: Label = Label.new()
