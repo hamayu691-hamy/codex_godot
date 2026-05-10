@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://dqq6k00rvb77v"]
+[gd_scene load_steps=16 format=3 uid="uid://dqq6k00rvb77v"]
 
 [ext_resource type="Script" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/gameplay/bumper.gd" id="2"]
@@ -21,6 +21,9 @@ size = Vector2(380, 20)
 [sub_resource type="PhysicsMaterial" id="6"]
 bounce = 0.75
 friction = 0.05
+
+[sub_resource type="RectangleShape2D" id="7"]
+size = Vector2(100, 16)
 
 
 [node name="PinballBattleScene" type="Node2D"]
@@ -77,7 +80,7 @@ color = Color(0.4, 0.45, 0.55, 1)
 polygon = PackedVector2Array(-200, -10, 200, -10, 200, 10, -200, 10)
 
 [node name="LeftFlipper" type="StaticBody2D" parent="."]
-position = Vector2(145, 540)
+position = Vector2(130, 565)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="LeftFlipper"]
 position = Vector2(45, 0)
@@ -89,7 +92,7 @@ color = Color(0.95, 0.5, 0.35, 1)
 polygon = PackedVector2Array(-55, -8, 55, -8, 55, 8, -55, 8)
 
 [node name="RightFlipper" type="StaticBody2D" parent="."]
-position = Vector2(255, 540)
+position = Vector2(270, 565)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="RightFlipper"]
 position = Vector2(-45, 0)
@@ -99,6 +102,31 @@ shape = SubResource("4")
 position = Vector2(-45, 0)
 color = Color(0.95, 0.5, 0.35, 1)
 polygon = PackedVector2Array(-55, -8, 55, -8, 55, 8, -55, 8)
+
+
+[node name="LeftFlipperGuideWall" type="StaticBody2D" parent="."]
+physics_material_override = SubResource("6")
+position = Vector2(92, 535)
+rotation = -0.52
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="LeftFlipperGuideWall"]
+shape = SubResource("7")
+
+[node name="WallVisual" type="Polygon2D" parent="LeftFlipperGuideWall"]
+color = Color(0.4, 0.45, 0.55, 1)
+polygon = PackedVector2Array(-50, -8, 50, -8, 50, 8, -50, 8)
+
+[node name="RightFlipperGuideWall" type="StaticBody2D" parent="."]
+physics_material_override = SubResource("6")
+position = Vector2(308, 535)
+rotation = 0.52
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RightFlipperGuideWall"]
+shape = SubResource("7")
+
+[node name="WallVisual" type="Polygon2D" parent="RightFlipperGuideWall"]
+color = Color(0.4, 0.45, 0.55, 1)
+polygon = PackedVector2Array(-50, -8, 50, -8, 50, 8, -50, 8)
 
 [node name="Drain" type="Area2D" parent="."]
 position = Vector2(200, 620)
