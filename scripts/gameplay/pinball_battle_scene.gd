@@ -15,6 +15,22 @@ const DAMAGE_POPUP_RISE: float = 24.0
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
 const BUMPER_GROUP: StringName = &"bumpers"
+const BUMPER_COLLISION_RADIUS: float = 18.0
+const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
+const BUMPER_VISUAL_POLYGON: PackedVector2Array = PackedVector2Array([
+	Vector2(0.0, -18.0),
+	Vector2(9.0, -15.5885),
+	Vector2(15.5885, -9.0),
+	Vector2(18.0, 0.0),
+	Vector2(15.5885, 9.0),
+	Vector2(9.0, 15.5885),
+	Vector2(0.0, 18.0),
+	Vector2(-9.0, 15.5885),
+	Vector2(-15.5885, 9.0),
+	Vector2(-18.0, 0.0),
+	Vector2(-15.5885, -9.0),
+	Vector2(-9.0, -15.5885),
+])
 
 @onready var ball: RigidBody2D = $Ball
 @onready var left_flipper: StaticBody2D = $LeftFlipper
@@ -24,6 +40,27 @@ const BUMPER_GROUP: StringName = &"bumpers"
 @onready var bumpers: Array[Bumper] = []
 @onready var enemy_hp_label: Label = $EnemyHpLabel
 @onready var victory_label: Label = $VictoryLabel
+
+var bumper_configs: Array[Dictionary] = [
+	{
+		"position": Vector2(130.0, 210.0),
+		"damage": 1,
+		"impulse_strength": 130.0,
+		"bumper_type": "normal",
+	},
+	{
+		"position": Vector2(200.0, 165.0),
+		"damage": 1,
+		"impulse_strength": 130.0,
+		"bumper_type": "normal",
+	},
+	{
+		"position": Vector2(270.0, 210.0),
+		"damage": 1,
+		"impulse_strength": 130.0,
+		"bumper_type": "normal",
+	},
+]
 
 var _left_pressed: bool = false
 var _right_pressed: bool = false
@@ -43,6 +80,7 @@ func _ready() -> void:
 	_previous_right_rotation = right_flipper.rotation
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
+	_spawn_bumpers()
 	for bumper_node: Node in bumpers_root.get_children():
 		if bumper_node is Bumper:
 			var bumper: Bumper = bumper_node
@@ -53,6 +91,33 @@ func _ready() -> void:
 	_update_enemy_hp_label()
 	victory_label.visible = false
 	reset_ball()
+
+func _spawn_bumpers() -> void:
+	for child: Node in bumpers_root.get_children():
+		child.queue_free()
+	bumpers.clear()
+	for index: int in range(bumper_configs.size()):
+		var config: Dictionary = bumper_configs[index]
+		var bumper: Bumper = Bumper.new()
+		bumper.name = "Bumper%d" % (index + 1)
+		bumper.position = config.get("position", Vector2.ZERO)
+		bumper.damage = int(config.get("damage", 1))
+		bumper.impulse_strength = float(config.get("impulse_strength", 130.0))
+		bumper.bumper_type = str(config.get("bumper_type", "normal"))
+
+		var collision_shape: CollisionShape2D = CollisionShape2D.new()
+		var circle_shape: CircleShape2D = CircleShape2D.new()
+		circle_shape.radius = BUMPER_COLLISION_RADIUS
+		collision_shape.shape = circle_shape
+		bumper.add_child(collision_shape)
+
+		var bumper_visual: Polygon2D = Polygon2D.new()
+		bumper_visual.name = "BumperVisual"
+		bumper_visual.color = BUMPER_VISUAL_COLOR
+		bumper_visual.polygon = BUMPER_VISUAL_POLYGON
+		bumper.add_child(bumper_visual)
+
+		bumpers_root.add_child(bumper)
 
 func _physics_process(delta: float) -> void:
 	_left_pressed = Input.is_key_pressed(KEY_LEFT)
