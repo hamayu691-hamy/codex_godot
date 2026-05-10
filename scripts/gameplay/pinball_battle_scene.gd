@@ -14,9 +14,16 @@ const DAMAGE_POPUP_RISE: float = 24.0
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
+const BALL_HP_INITIAL: int = 20
 const BUMPER_GROUP: StringName = &"bumpers"
 const BUMPER_COLLISION_RADIUS: float = 18.0
 const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
+const BULLET_SPEED: float = 420.0
+const BULLET_DAMAGE: int = 2
+const BULLET_COLLISION_RADIUS: float = 7.0
+const BULLET_FIRE_INTERVAL: float = 1.1
+const BALL_HP_BAR_SIZE: Vector2 = Vector2(44.0, 7.0)
+const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
 const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 	Vector2(0.0, -18.0),
 	Vector2(9.0, -15.5885),
@@ -38,9 +45,13 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var drain: Area2D = $Drain
 @onready var bumpers_root: Node = $Bumpers
 @onready var walls_root: Node2D = $Walls
-@onready var bumpers: Array[Bumper] = []
+@onready var bullets_root: Node2D = $Bullets
+@onready var enemy_gun_marker: Marker2D = $EnemyGunMarker
+@onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
 @onready var enemy_hp_label: Label = $EnemyHpLabel
 @onready var victory_label: Label = $VictoryLabel
+@onready var game_over_label: Label = $GameOverLabel
+@onready var bumpers: Array[Bumper] = []
 
 var bumper_configs: Array[Dictionary] = [
 	{
@@ -118,9 +129,12 @@ var _previous_right_rotation: float = RIGHT_FLIPPER_REST_ROTATION
 var _left_angular_speed: float = 0.0
 var _right_angular_speed: float = 0.0
 var _enemy_hp: int = ENEMY_HP_INITIAL
+var _ball_hp: int = BALL_HP_INITIAL
 var _is_victory: bool = false
+var _is_game_over: bool = false
+var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
-
+var _bullet_fire_elapsed: float = 0.0
 
 func _ready() -> void:
 	left_flipper.rotation = LEFT_FLIPPER_REST_ROTATION
@@ -138,9 +152,19 @@ func _ready() -> void:
 			bumper.add_to_group(BUMPER_GROUP)
 			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
 			bumper.hit.connect(_on_bumper_hit)
+	_setup_ball_hp_bar()
 	_update_enemy_hp_label()
 	victory_label.visible = false
-	reset_ball()
+	game_over_label.visible = false
+	_reset_battle()
+
+func _setup_ball_hp_bar() -> void:
+	ball_hp_bar.min_value = 0
+	ball_hp_bar.max_value = BALL_HP_INITIAL
+	ball_hp_bar.value = BALL_HP_INITIAL
+	ball_hp_bar.show_percentage = false
+	ball_hp_bar.position = BALL_HP_BAR_OFFSET
+	ball_hp_bar.size = BALL_HP_BAR_SIZE
 
 func _spawn_bumpers() -> void:
 	for child: Node in bumpers_root.get_children():
@@ -207,6 +231,10 @@ func _spawn_walls() -> void:
 func _physics_process(delta: float) -> void:
 	_left_pressed = Input.is_key_pressed(KEY_LEFT)
 	_right_pressed = Input.is_key_pressed(KEY_RIGHT)
+	if Input.is_key_pressed(KEY_R):
+		_reset_battle()
+		return
+
 	var left_target: float = LEFT_FLIPPER_REST_ROTATION
 	var right_target: float = RIGHT_FLIPPER_REST_ROTATION
 	if _left_pressed:
@@ -227,15 +255,56 @@ func _physics_process(delta: float) -> void:
 	_previous_left_rotation = left_flipper.rotation
 	_previous_right_rotation = right_flipper.rotation
 
-	var speed: float = ball.linear_velocity.length()
-	if speed > BALL_MAX_SPEED and not _is_victory:
-		ball.linear_velocity = ball.linear_velocity.normalized() * BALL_MAX_SPEED
-	if Input.is_key_pressed(KEY_R):
-		_reset_battle()
+	if _is_ball_alive:
+		var speed: float = ball.linear_velocity.length()
+		if speed > BALL_MAX_SPEED and not _is_victory:
+			ball.linear_velocity = ball.linear_velocity.normalized() * BALL_MAX_SPEED
+
+	_update_enemy_bullets(delta)
 	_update_damage_popups(delta)
 
+func _update_enemy_bullets(delta: float) -> void:
+	if _is_victory or _is_game_over:
+		return
+	_bullet_fire_elapsed += delta
+	if _bullet_fire_elapsed >= BULLET_FIRE_INTERVAL:
+		_bullet_fire_elapsed = 0.0
+		_spawn_enemy_bullet()
+
+func _spawn_enemy_bullet() -> void:
+	if not _is_ball_alive:
+		return
+	var bullet: Area2D = Area2D.new()
+	bullet.name = "EnemyBullet"
+	bullet.position = enemy_gun_marker.global_position
+	bullet.set_meta("damage", BULLET_DAMAGE)
+	bullet.collision_layer = 0
+	bullet.collision_mask = 0
+
+	var collision: CollisionShape2D = CollisionShape2D.new()
+	var circle_shape: CircleShape2D = CircleShape2D.new()
+	circle_shape.radius = BULLET_COLLISION_RADIUS
+	collision.shape = circle_shape
+	bullet.add_child(collision)
+
+	var visual: Polygon2D = Polygon2D.new()
+	visual.color = Color(1.0, 0.4, 0.35, 1.0)
+	visual.polygon = PackedVector2Array([
+		Vector2(0.0, -6.0),
+		Vector2(6.0, 0.0),
+		Vector2(0.0, 6.0),
+		Vector2(-6.0, 0.0),
+	])
+	bullet.add_child(visual)
+
+	var to_ball: Vector2 = (ball.global_position - bullet.global_position).normalized()
+	if to_ball == Vector2.ZERO:
+		to_ball = Vector2.DOWN
+	bullet.set_meta("velocity", to_ball * BULLET_SPEED)
+	bullets_root.add_child(bullet)
+
 func _on_drain_body_entered(body: Node2D) -> void:
-	if body == ball:
+	if body == ball and _is_ball_alive:
 		reset_ball()
 
 func _on_ball_body_entered(body: Node) -> void:
@@ -253,7 +322,7 @@ func _is_right_flipper_striking() -> bool:
 	return _right_angular_speed >= FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
 
 func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
-	if _is_victory:
+	if _is_victory or _is_game_over:
 		return
 	var pivot_to_ball: Vector2 = (ball.global_position - flipper.global_position).normalized()
 	var impulse_direction: Vector2 = Vector2(0.4 * side, -1.0).normalized()
@@ -263,7 +332,7 @@ func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
 	ball.apply_central_impulse(impulse)
 
 func reset_ball() -> void:
-	if _is_victory:
+	if not _is_ball_alive:
 		return
 	ball.sleeping = true
 	ball.global_position = BALL_START_POSITION
@@ -273,14 +342,14 @@ func reset_ball() -> void:
 	ball.apply_central_impulse(BALL_LAUNCH_IMPULSE)
 
 func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
-	if _is_victory:
+	if _is_victory or _is_game_over:
 		return
 	if body != ball:
 		return
 	bumper.on_ball_entered(ball)
 
 func _on_bumper_hit(_bumper: Bumper, damage: int) -> void:
-	if _is_victory:
+	if _is_victory or _is_game_over:
 		return
 	_enemy_hp -= damage
 	_update_enemy_hp_label()
@@ -334,9 +403,56 @@ func _update_enemy_hp_label() -> void:
 		current_hp = 0
 	enemy_hp_label.text = "Enemy HP: %d" % current_hp
 
+func _damage_ball(damage: int) -> void:
+	if _is_victory or _is_game_over or not _is_ball_alive:
+		return
+	_ball_hp -= damage
+	ball_hp_bar.value = max(_ball_hp, 0)
+	if _ball_hp <= 0:
+		_destroy_ball()
+
+func _destroy_ball() -> void:
+	if not _is_ball_alive:
+		return
+	_is_ball_alive = false
+	ball.visible = false
+	ball.freeze = true
+	for child: Node in bullets_root.get_children():
+		child.queue_free()
+	_enter_game_over_state()
+
+func _enter_game_over_state() -> void:
+	_is_game_over = true
+	game_over_label.visible = true
+
 func _reset_battle() -> void:
 	_is_victory = false
+	_is_game_over = false
+	_is_ball_alive = true
 	_enemy_hp = ENEMY_HP_INITIAL
+	_ball_hp = BALL_HP_INITIAL
+	_bullet_fire_elapsed = 0.0
 	_update_enemy_hp_label()
+	ball_hp_bar.value = _ball_hp
 	victory_label.visible = false
+	game_over_label.visible = false
+	ball.visible = true
+	ball.freeze = false
+	for child: Node in bullets_root.get_children():
+		child.queue_free()
 	reset_ball()
+
+func _process(delta: float) -> void:
+	for index: int in range(bullets_root.get_child_count() - 1, -1, -1):
+		var bullet_node: Node = bullets_root.get_child(index)
+		if not (bullet_node is Area2D):
+			continue
+		var bullet: Area2D = bullet_node
+		var velocity: Vector2 = bullet.get_meta("velocity", Vector2.ZERO)
+		bullet.global_position += velocity * delta
+		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (12.0 + BULLET_COLLISION_RADIUS):
+			_damage_ball(int(bullet.get_meta("damage", BULLET_DAMAGE)))
+			bullet.queue_free()
+			continue
+		if bullet.global_position.y > 700.0 or bullet.global_position.x < -20.0 or bullet.global_position.x > 420.0:
+			bullet.queue_free()
