@@ -1,6 +1,7 @@
-[gd_scene load_steps=15 format=3 uid="uid://dqq6k00rvb77v"]
+[gd_scene load_steps=16 format=3 uid="uid://dqq6k00rvb77v"]
 
 [ext_resource type="Script" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/gameplay/bumper.gd" id="2"]
 
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(24, 24)
@@ -111,36 +112,38 @@ shape = SubResource("5")
 color = Color(0.8, 0.2, 0.25, 0.65)
 polygon = PackedVector2Array(-190, -10, 190, -10, 190, 10, -190, 10)
 
-[node name="Bumper1" type="Area2D" parent="."]
+[node name="Bumpers" type="Node2D" parent="."]
+
+[node name="Bumper1" type="Area2D" parent="Bumpers"]
 position = Vector2(130, 210)
-metadata/damage = 1
+script = ExtResource("2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumper1"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumpers/Bumper1"]
 shape = SubResource("7")
 
-[node name="BumperVisual" type="Polygon2D" parent="Bumper1"]
+[node name="BumperVisual" type="Polygon2D" parent="Bumpers/Bumper1"]
 color = Color(0.2, 0.9, 0.95, 1)
 polygon = PackedVector2Array(0, -18, 9, -15.5885, 15.5885, -9, 18, 0, 15.5885, 9, 9, 15.5885, 0, 18, -9, 15.5885, -15.5885, 9, -18, 0, -15.5885, -9, -9, -15.5885)
 
-[node name="Bumper2" type="Area2D" parent="."]
+[node name="Bumper2" type="Area2D" parent="Bumpers"]
 position = Vector2(200, 165)
-metadata/damage = 1
+script = ExtResource("2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumper2"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumpers/Bumper2"]
 shape = SubResource("7")
 
-[node name="BumperVisual" type="Polygon2D" parent="Bumper2"]
+[node name="BumperVisual" type="Polygon2D" parent="Bumpers/Bumper2"]
 color = Color(0.2, 0.9, 0.95, 1)
 polygon = PackedVector2Array(0, -18, 9, -15.5885, 15.5885, -9, 18, 0, 15.5885, 9, 9, 15.5885, 0, 18, -9, 15.5885, -15.5885, 9, -18, 0, -15.5885, -9, -9, -15.5885)
 
-[node name="Bumper3" type="Area2D" parent="."]
+[node name="Bumper3" type="Area2D" parent="Bumpers"]
 position = Vector2(270, 210)
-metadata/damage = 1
+script = ExtResource("2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumper3"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bumpers/Bumper3"]
 shape = SubResource("7")
 
-[node name="BumperVisual" type="Polygon2D" parent="Bumper3"]
+[node name="BumperVisual" type="Polygon2D" parent="Bumpers/Bumper3"]
 color = Color(0.2, 0.9, 0.95, 1)
 polygon = PackedVector2Array(0, -18, 9, -15.5885, 15.5885, -9, 18, 0, 15.5885, 9, 9, 15.5885, 0, 18, -9, 15.5885, -15.5885, 9, -18, 0, -15.5885, -9, -9, -15.5885)
 
