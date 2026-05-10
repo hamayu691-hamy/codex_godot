@@ -28,6 +28,7 @@ angular_damp = 0.2
 physics_material_override = SubResource("6")
 contact_monitor = true
 max_contacts_reported = 8
+freeze = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ball"]
 shape = SubResource("1")
@@ -35,6 +36,15 @@ shape = SubResource("1")
 [node name="BallVisual" type="Polygon2D" parent="Ball"]
 color = Color(0.98, 0.88, 0.2, 1)
 polygon = PackedVector2Array(0, -12, 8, -9, 12, 0, 8, 9, 0, 12, -8, 9, -12, 0, -8, -9)
+
+
+[node name="BallHpBar" type="ProgressBar" parent="Ball"]
+offset_left = -22.0
+offset_top = -26.0
+offset_right = 22.0
+offset_bottom = -19.0
+show_percentage = false
+value = 20.0
 
 [node name="LeftFlipper" type="StaticBody2D" parent="."]
 position = Vector2(150, 570)
@@ -76,6 +86,11 @@ polygon = PackedVector2Array(-190, -10, 190, -10, 190, 10, -190, 10)
 
 [node name="Bumpers" type="Node2D" parent="."]
 
+[node name="Bullets" type="Node2D" parent="."]
+
+[node name="EnemyGunMarker" type="Marker2D" parent="."]
+position = Vector2(200, 70)
+
 [node name="EnemyHpLabel" type="Label" parent="."]
 offset_left = 20.0
 offset_top = 20.0
@@ -92,3 +107,12 @@ offset_right = 300.0
 offset_bottom = 322.0
 theme_override_font_sizes/font_size = 52
 text = "VICTORY"
+
+[node name="GameOverLabel" type="Label" parent="."]
+visible = false
+offset_left = 95.0
+offset_top = 260.0
+offset_right = 340.0
+offset_bottom = 322.0
+theme_override_font_sizes/font_size = 52
+text = "GAME OVER"
