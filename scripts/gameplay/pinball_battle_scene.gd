@@ -15,6 +15,7 @@ const DAMAGE_POPUP_RISE: float = 24.0
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
 const BALL_HP_INITIAL: int = 20
+const REWARD_FLIPPER_POWER_MULTIPLIER_STEP: float = 0.1
 const BUMPER_GROUP: StringName = &"bumpers"
 const BUMPER_COLLISION_RADIUS: float = 18.0
 const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
@@ -51,6 +52,12 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var enemy_hp_label: Label = $EnemyHpLabel
 @onready var victory_label: Label = $VictoryLabel
 @onready var game_over_label: Label = $GameOverLabel
+@onready var reward_panel: Panel = $RewardPanel
+@onready var reward_header_label: Label = $RewardPanel/RewardHeaderLabel
+@onready var reward_status_label: Label = $RewardPanel/RewardStatusLabel
+@onready var reward_bumper_button: Button = $RewardPanel/RewardButtons/BumperDamageButton
+@onready var reward_max_hp_button: Button = $RewardPanel/RewardButtons/MaxHpButton
+@onready var reward_flipper_button: Button = $RewardPanel/RewardButtons/FlipperPowerButton
 @onready var bumpers: Array[Bumper] = []
 
 var bumper_configs: Array[Dictionary] = [
@@ -135,6 +142,10 @@ var _is_game_over: bool = false
 var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
 var _bullet_fire_elapsed: float = 0.0
+var _bumper_damage_bonus: int = 0
+var _max_hp_bonus: int = 0
+var _flipper_power_multiplier: float = 1.0
+var _reward_selected_this_victory: bool = false
 
 func _ready() -> void:
 	left_flipper.rotation = LEFT_FLIPPER_REST_ROTATION
@@ -153,6 +164,7 @@ func _ready() -> void:
 			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
 			bumper.hit.connect(_on_bumper_hit)
 	_setup_ball_hp_bar()
+	_setup_reward_panel()
 	_update_enemy_hp_label()
 	victory_label.visible = false
 	game_over_label.visible = false
@@ -160,8 +172,8 @@ func _ready() -> void:
 
 func _setup_ball_hp_bar() -> void:
 	ball_hp_bar.min_value = 0
-	ball_hp_bar.max_value = BALL_HP_INITIAL
-	ball_hp_bar.value = BALL_HP_INITIAL
+	ball_hp_bar.max_value = _get_ball_max_hp()
+	ball_hp_bar.value = _get_ball_max_hp()
 	ball_hp_bar.show_percentage = false
 	ball_hp_bar.position = BALL_HP_BAR_OFFSET
 	ball_hp_bar.size = BALL_HP_BAR_SIZE
@@ -328,7 +340,7 @@ func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
 	var impulse_direction: Vector2 = Vector2(0.4 * side, -1.0).normalized()
 	if pivot_to_ball != Vector2.ZERO:
 		impulse_direction = (impulse_direction + pivot_to_ball * 0.35).normalized()
-	var impulse: Vector2 = impulse_direction * FLIPPER_HIT_IMPULSE
+	var impulse: Vector2 = impulse_direction * FLIPPER_HIT_IMPULSE * _flipper_power_multiplier
 	ball.apply_central_impulse(impulse)
 
 func reset_ball() -> void:
@@ -351,7 +363,7 @@ func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 func _on_bumper_hit(_bumper: Bumper, damage: int) -> void:
 	if _is_victory or _is_game_over:
 		return
-	_enemy_hp -= damage
+	_enemy_hp -= damage + _bumper_damage_bonus
 	_update_enemy_hp_label()
 	_spawn_damage_popup(damage)
 	if _enemy_hp <= 0:
@@ -396,6 +408,51 @@ func _enter_victory_state() -> void:
 	ball.linear_velocity = Vector2.ZERO
 	ball.angular_velocity = 0.0
 	victory_label.visible = true
+	_show_reward_panel()
+
+func _setup_reward_panel() -> void:
+	reward_panel.visible = false
+	reward_bumper_button.pressed.connect(_on_reward_selected.bind("bumper_damage"))
+	reward_max_hp_button.pressed.connect(_on_reward_selected.bind("max_hp"))
+	reward_flipper_button.pressed.connect(_on_reward_selected.bind("flipper_power"))
+	reward_header_label.text = "報酬を1つ選んでください"
+	reward_status_label.text = ""
+
+func _show_reward_panel() -> void:
+	_reward_selected_this_victory = false
+	reward_panel.visible = true
+	reward_status_label.text = ""
+	reward_bumper_button.disabled = false
+	reward_max_hp_button.disabled = false
+	reward_flipper_button.disabled = false
+
+func _on_reward_selected(reward_id: String) -> void:
+	if _reward_selected_this_victory:
+		return
+	_reward_selected_this_victory = true
+	match reward_id:
+		"bumper_damage":
+			_bumper_damage_bonus += 1
+			reward_status_label.text = "バンパーダメージ +1 を獲得"
+		"max_hp":
+			_max_hp_bonus += 5
+			reward_status_label.text = "最大HP +5 を獲得"
+		"flipper_power":
+			_flipper_power_multiplier += REWARD_FLIPPER_POWER_MULTIPLIER_STEP
+			reward_status_label.text = "フリッパー打ち返し力 +10% を獲得"
+	reward_bumper_button.disabled = true
+	reward_max_hp_button.disabled = true
+	reward_flipper_button.disabled = true
+	reward_header_label.text = "次ステージ（仮）へ進みます"
+	_start_next_battle_placeholder()
+
+func _start_next_battle_placeholder() -> void:
+	await get_tree().create_timer(0.8).timeout
+	reward_panel.visible = false
+	_reset_battle()
+
+func _get_ball_max_hp() -> int:
+	return BALL_HP_INITIAL + _max_hp_bonus
 
 func _update_enemy_hp_label() -> void:
 	var current_hp: int = _enemy_hp
@@ -430,12 +487,14 @@ func _reset_battle() -> void:
 	_is_game_over = false
 	_is_ball_alive = true
 	_enemy_hp = ENEMY_HP_INITIAL
-	_ball_hp = BALL_HP_INITIAL
+	_ball_hp = _get_ball_max_hp()
 	_bullet_fire_elapsed = 0.0
 	_update_enemy_hp_label()
+	ball_hp_bar.max_value = _ball_hp
 	ball_hp_bar.value = _ball_hp
 	victory_label.visible = false
 	game_over_label.visible = false
+	reward_panel.visible = false
 	ball.visible = true
 	ball.freeze = false
 	for child: Node in bullets_root.get_children():
