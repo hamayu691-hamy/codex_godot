@@ -17,7 +17,7 @@ const ENEMY_HP_INITIAL: int = 20
 const BUMPER_GROUP: StringName = &"bumpers"
 const BUMPER_COLLISION_RADIUS: float = 18.0
 const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
-const BUMPER_VISUAL_POLYGON: PackedVector2Array = PackedVector2Array([
+const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 	Vector2(0.0, -18.0),
 	Vector2(9.0, -15.5885),
 	Vector2(15.5885, -9.0),
@@ -30,7 +30,7 @@ const BUMPER_VISUAL_POLYGON: PackedVector2Array = PackedVector2Array([
 	Vector2(-18.0, 0.0),
 	Vector2(-15.5885, -9.0),
 	Vector2(-9.0, -15.5885),
-])
+]
 
 @onready var ball: RigidBody2D = $Ball
 @onready var left_flipper: StaticBody2D = $LeftFlipper
@@ -114,7 +114,7 @@ func _spawn_bumpers() -> void:
 		var bumper_visual: Polygon2D = Polygon2D.new()
 		bumper_visual.name = "BumperVisual"
 		bumper_visual.color = BUMPER_VISUAL_COLOR
-		bumper_visual.polygon = BUMPER_VISUAL_POLYGON
+		bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		bumper.add_child(bumper_visual)
 
 		bumpers_root.add_child(bumper)
