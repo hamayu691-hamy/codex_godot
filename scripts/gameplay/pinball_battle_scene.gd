@@ -1,14 +1,8 @@
 extends Node2D
 
 const BALL_START_POSITION: Vector2 = Vector2(200.0, 120.0)
-const LEFT_FLIPPER_REST_ROTATION: float = -0.35
-const LEFT_FLIPPER_ACTIVE_ROTATION: float = -1.0
-const RIGHT_FLIPPER_REST_ROTATION: float = 0.35
-const RIGHT_FLIPPER_ACTIVE_ROTATION: float = 1.0
-const FLIPPER_ROTATE_SPEED: float = 14.0
 const BALL_MAX_SPEED: float = 1350.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
-const FLIPPER_HIT_IMPULSE: float = 1600.0
 const DAMAGE_POPUP_DURATION: float = 0.55
 const DAMAGE_POPUP_RISE: float = 24.0
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
@@ -41,8 +35,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 ]
 
 @onready var ball: RigidBody2D = $Ball
-@onready var left_flipper: StaticBody2D = $LeftFlipper
-@onready var right_flipper: StaticBody2D = $RightFlipper
+@onready var flippers_root: Node2D = $Flippers
 @onready var drain: Area2D = $Drain
 @onready var bumpers_root: Node = $Bumpers
 @onready var walls_root: Node2D = $Walls
@@ -129,12 +122,38 @@ var wall_configs: Array[Dictionary] = [
 	},
 ]
 
-var _left_pressed: bool = false
-var _right_pressed: bool = false
-var _previous_left_rotation: float = LEFT_FLIPPER_REST_ROTATION
-var _previous_right_rotation: float = RIGHT_FLIPPER_REST_ROTATION
-var _left_angular_speed: float = 0.0
-var _right_angular_speed: float = 0.0
+var flipper_configs: Array[Dictionary] = [
+	{
+		"name": "LeftFlipper",
+		"position": Vector2(150.0, 570.0),
+		"collision_offset": Vector2(45.0, 0.0),
+		"visual_offset": Vector2(45.0, 0.0),
+		"size": Vector2(110.0, 16.0),
+		"rest_rotation": -0.35,
+		"active_rotation": -1.0,
+		"rotate_speed": 14.0,
+		"input_key": KEY_LEFT,
+		"side": -1.0,
+		"hit_impulse": 1600.0,
+		"color": Color(0.95, 0.5, 0.35, 1.0),
+	},
+	{
+		"name": "RightFlipper",
+		"position": Vector2(250.0, 570.0),
+		"collision_offset": Vector2(-45.0, 0.0),
+		"visual_offset": Vector2(-45.0, 0.0),
+		"size": Vector2(110.0, 16.0),
+		"rest_rotation": 0.35,
+		"active_rotation": 1.0,
+		"rotate_speed": 14.0,
+		"input_key": KEY_RIGHT,
+		"side": 1.0,
+		"hit_impulse": 1600.0,
+		"color": Color(0.95, 0.5, 0.35, 1.0),
+	},
+]
+
+var _flippers: Array[Dictionary] = []
 var _enemy_hp: int = ENEMY_HP_INITIAL
 var _ball_hp: int = BALL_HP_INITIAL
 var _is_victory: bool = false
@@ -148,10 +167,7 @@ var _flipper_power_multiplier: float = 1.0
 var _reward_selected_this_victory: bool = false
 
 func _ready() -> void:
-	left_flipper.rotation = LEFT_FLIPPER_REST_ROTATION
-	right_flipper.rotation = RIGHT_FLIPPER_REST_ROTATION
-	_previous_left_rotation = left_flipper.rotation
-	_previous_right_rotation = right_flipper.rotation
+	_spawn_flippers()
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
 	_spawn_walls()
@@ -240,32 +256,67 @@ func _spawn_walls() -> void:
 
 		walls_root.add_child(wall)
 
+func _spawn_flippers() -> void:
+	for child: Node in flippers_root.get_children():
+		child.queue_free()
+	_flippers.clear()
+	for config: Dictionary in flipper_configs:
+		var flipper: StaticBody2D = StaticBody2D.new()
+		flipper.name = str(config.get("name", "Flipper"))
+		flipper.position = config.get("position", Vector2.ZERO)
+		flipper.rotation = float(config.get("rest_rotation", 0.0))
+
+		var collision_shape: CollisionShape2D = CollisionShape2D.new()
+		collision_shape.position = config.get("collision_offset", Vector2.ZERO)
+		var rectangle_shape: RectangleShape2D = RectangleShape2D.new()
+		rectangle_shape.size = config.get("size", Vector2(110.0, 16.0))
+		collision_shape.shape = rectangle_shape
+		flipper.add_child(collision_shape)
+
+		var visual: Polygon2D = Polygon2D.new()
+		visual.name = "FlipperVisual"
+		visual.position = config.get("visual_offset", Vector2.ZERO)
+		visual.color = config.get("color", Color(0.95, 0.5, 0.35, 1.0))
+		var size: Vector2 = config.get("size", Vector2(110.0, 16.0))
+		visual.polygon = PackedVector2Array([
+			Vector2(-size.x / 2.0, -size.y / 2.0),
+			Vector2(size.x / 2.0, -size.y / 2.0),
+			Vector2(size.x / 2.0, size.y / 2.0),
+			Vector2(-size.x / 2.0, size.y / 2.0),
+		])
+		flipper.add_child(visual)
+
+		flippers_root.add_child(flipper)
+		_flippers.append({
+			"config": config,
+			"node": flipper,
+			"previous_rotation": flipper.rotation,
+			"angular_speed": 0.0,
+		})
+
 func _physics_process(delta: float) -> void:
-	_left_pressed = Input.is_key_pressed(KEY_LEFT)
-	_right_pressed = Input.is_key_pressed(KEY_RIGHT)
 	if Input.is_key_pressed(KEY_R):
 		_reset_battle()
 		return
 
-	var left_target: float = LEFT_FLIPPER_REST_ROTATION
-	var right_target: float = RIGHT_FLIPPER_REST_ROTATION
-	if _left_pressed:
-		left_target = LEFT_FLIPPER_ACTIVE_ROTATION
-	if _right_pressed:
-		right_target = RIGHT_FLIPPER_ACTIVE_ROTATION
-	left_flipper.rotation = move_toward(left_flipper.rotation, left_target, FLIPPER_ROTATE_SPEED * delta)
-	right_flipper.rotation = move_toward(right_flipper.rotation, right_target, FLIPPER_ROTATE_SPEED * delta)
+	for index: int in range(_flippers.size()):
+		var state: Dictionary = _flippers[index]
+		var config: Dictionary = state["config"]
+		var flipper: StaticBody2D = state["node"]
+		var rest_rotation: float = float(config.get("rest_rotation", 0.0))
+		var active_rotation: float = float(config.get("active_rotation", rest_rotation))
+		var target: float = rest_rotation
+		if Input.is_key_pressed(int(config.get("input_key", KEY_LEFT))):
+			target = active_rotation
+		flipper.rotation = move_toward(flipper.rotation, target, float(config.get("rotate_speed", 14.0)) * delta)
 
-	var left_rotation_delta: float = left_flipper.rotation - _previous_left_rotation
-	var right_rotation_delta: float = right_flipper.rotation - _previous_right_rotation
-	if delta > 0.0:
-		_left_angular_speed = left_rotation_delta / delta
-		_right_angular_speed = right_rotation_delta / delta
-	else:
-		_left_angular_speed = 0.0
-		_right_angular_speed = 0.0
-	_previous_left_rotation = left_flipper.rotation
-	_previous_right_rotation = right_flipper.rotation
+		var rotation_delta: float = flipper.rotation - float(state["previous_rotation"])
+		if delta > 0.0:
+			state["angular_speed"] = rotation_delta / delta
+		else:
+			state["angular_speed"] = 0.0
+		state["previous_rotation"] = flipper.rotation
+		_flippers[index] = state
 
 	if _is_ball_alive:
 		var speed: float = ball.linear_velocity.length()
@@ -320,27 +371,30 @@ func _on_drain_body_entered(body: Node2D) -> void:
 		reset_ball()
 
 func _on_ball_body_entered(body: Node) -> void:
-	if body == left_flipper and _is_left_flipper_striking():
-		_apply_flipper_impulse(left_flipper, -1.0)
-	elif body == right_flipper and _is_right_flipper_striking():
-		_apply_flipper_impulse(right_flipper, 1.0)
+	for state: Dictionary in _flippers:
+		var flipper: StaticBody2D = state["node"]
+		if body == flipper and _is_flipper_striking(state):
+			_apply_flipper_impulse(flipper, state["config"])
+			break
 
-func _is_left_flipper_striking() -> bool:
-	# Left flipper striking direction: rotation gets smaller (negative angular speed).
-	return _left_angular_speed <= -FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
+func _is_flipper_striking(state: Dictionary) -> bool:
+	var config: Dictionary = state["config"]
+	var side: float = float(config.get("side", 1.0))
+	var angular_speed: float = float(state.get("angular_speed", 0.0))
+	if side < 0.0:
+		return angular_speed <= -FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
+	return angular_speed >= FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
 
-func _is_right_flipper_striking() -> bool:
-	# Right flipper striking direction: rotation gets larger (positive angular speed).
-	return _right_angular_speed >= FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
-
-func _apply_flipper_impulse(flipper: StaticBody2D, side: float) -> void:
+func _apply_flipper_impulse(flipper: StaticBody2D, config: Dictionary) -> void:
 	if _is_victory or _is_game_over:
 		return
+	var side: float = float(config.get("side", 1.0))
 	var pivot_to_ball: Vector2 = (ball.global_position - flipper.global_position).normalized()
 	var impulse_direction: Vector2 = Vector2(0.4 * side, -1.0).normalized()
 	if pivot_to_ball != Vector2.ZERO:
 		impulse_direction = (impulse_direction + pivot_to_ball * 0.35).normalized()
-	var impulse: Vector2 = impulse_direction * FLIPPER_HIT_IMPULSE * _flipper_power_multiplier
+	var hit_impulse: float = float(config.get("hit_impulse", 1600.0))
+	var impulse: Vector2 = impulse_direction * hit_impulse * _flipper_power_multiplier
 	ball.apply_central_impulse(impulse)
 
 func reset_ball() -> void:
