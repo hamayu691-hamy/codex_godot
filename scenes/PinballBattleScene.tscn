@@ -46,31 +46,7 @@ offset_bottom = -19.0
 show_percentage = false
 value = 20.0
 
-[node name="LeftFlipper" type="StaticBody2D" parent="."]
-position = Vector2(150, 570)
-rotation = -0.35
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LeftFlipper"]
-position = Vector2(45, 0)
-shape = SubResource("4")
-
-[node name="FlipperVisual" type="Polygon2D" parent="LeftFlipper"]
-position = Vector2(45, 0)
-color = Color(0.95, 0.5, 0.35, 1)
-polygon = PackedVector2Array(-55, -8, 55, -8, 55, 8, -55, 8)
-
-[node name="RightFlipper" type="StaticBody2D" parent="."]
-position = Vector2(250, 570)
-rotation = 0.35
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="RightFlipper"]
-position = Vector2(-45, 0)
-shape = SubResource("4")
-
-[node name="FlipperVisual" type="Polygon2D" parent="RightFlipper"]
-position = Vector2(-45, 0)
-color = Color(0.95, 0.5, 0.35, 1)
-polygon = PackedVector2Array(-55, -8, 55, -8, 55, 8, -55, 8)
+[node name="Flippers" type="Node2D" parent="."]
 
 [node name="Drain" type="Area2D" parent="."]
 position = Vector2(200, 620)
