@@ -62,6 +62,8 @@ polygon = PackedVector2Array(-190, -10, 190, -10, 190, 10, -190, 10)
 
 [node name="Bumpers" type="Node2D" parent="."]
 
+[node name="Enemies" type="Node2D" parent="."]
+
 [node name="Bullets" type="Node2D" parent="."]
 
 [node name="EnemyGunMarker" type="Marker2D" parent="."]
