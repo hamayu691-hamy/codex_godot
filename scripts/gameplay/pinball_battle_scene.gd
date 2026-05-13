@@ -19,6 +19,8 @@ const BULLET_COLLISION_RADIUS: float = 7.0
 const BULLET_FIRE_INTERVAL: float = 1.1
 const BALL_HP_BAR_SIZE: Vector2 = Vector2(44.0, 7.0)
 const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
+const ENEMY_COLLISION_RADIUS: float = 20.0
+const ENEMY_VISUAL_COLOR: Color = Color(0.9, 0.3, 0.35, 1.0)
 const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 	Vector2(0.0, -18.0),
 	Vector2(9.0, -15.5885),
@@ -38,6 +40,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var flippers_root: Node2D = $Flippers
 @onready var drain: Area2D = $Drain
 @onready var bumpers_root: Node = $Bumpers
+@onready var enemies_root: Node2D = $Enemies
 @onready var walls_root: Node2D = $Walls
 @onready var bullets_root: Node2D = $Bullets
 @onready var enemy_gun_marker: Marker2D = $EnemyGunMarker
@@ -52,6 +55,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var reward_max_hp_button: Button = $RewardPanel/RewardButtons/MaxHpButton
 @onready var reward_flipper_button: Button = $RewardPanel/RewardButtons/FlipperPowerButton
 @onready var bumpers: Array[Bumper] = []
+@onready var enemies: Array[Enemy] = []
 
 var bumper_configs: Array[Dictionary] = [
 	{
@@ -153,8 +157,21 @@ var flipper_configs: Array[Dictionary] = [
 	},
 ]
 
+var enemy_configs: Array[Dictionary] = [
+	{
+		"position": Vector2(200.0, 140.0),
+		"max_hp": 20,
+		"current_hp": 20,
+		"contact_damage": 1,
+		"move_speed": 35.0,
+		"enemy_type": "basic",
+		"score_value": 100,
+		"move_axis": "horizontal",
+		"move_range": 80.0,
+	},
+]
+
 var _flippers: Array[Dictionary] = []
-var _enemy_hp: int = ENEMY_HP_INITIAL
 var _ball_hp: int = BALL_HP_INITIAL
 var _is_victory: bool = false
 var _is_game_over: bool = false
@@ -172,6 +189,7 @@ func _ready() -> void:
 	ball.body_entered.connect(_on_ball_body_entered)
 	_spawn_walls()
 	_spawn_bumpers()
+	_spawn_enemies()
 	for bumper_node: Node in bumpers_root.get_children():
 		if bumper_node is Bumper:
 			var bumper: Bumper = bumper_node
@@ -255,6 +273,43 @@ func _spawn_walls() -> void:
 		wall.add_child(wall_visual)
 
 		walls_root.add_child(wall)
+
+func _spawn_enemies() -> void:
+	for child: Node in enemies_root.get_children():
+		child.queue_free()
+	enemies.clear()
+	for index: int in range(enemy_configs.size()):
+		var config: Dictionary = enemy_configs[index]
+		var enemy: Enemy = Enemy.new()
+		enemy.name = "Enemy%d" % (index + 1)
+		enemy.position = config.get("position", Vector2(200.0, 140.0))
+		enemy.max_hp = int(config.get("max_hp", ENEMY_HP_INITIAL))
+		enemy.current_hp = int(config.get("current_hp", enemy.max_hp))
+		enemy.contact_damage = int(config.get("contact_damage", 1))
+		enemy.move_speed = float(config.get("move_speed", 35.0))
+		enemy.enemy_type = str(config.get("enemy_type", "basic"))
+		enemy.score_value = int(config.get("score_value", 100))
+		enemy.move_axis = str(config.get("move_axis", "horizontal"))
+		enemy.move_range = float(config.get("move_range", 80.0))
+
+		var collision_shape: CollisionShape2D = CollisionShape2D.new()
+		var circle_shape: CircleShape2D = CircleShape2D.new()
+		circle_shape.radius = ENEMY_COLLISION_RADIUS
+		collision_shape.shape = circle_shape
+		enemy.add_child(collision_shape)
+
+		var enemy_visual: Polygon2D = Polygon2D.new()
+		enemy_visual.name = "EnemyVisual"
+		enemy_visual.color = ENEMY_VISUAL_COLOR
+		enemy_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
+		enemy.add_child(enemy_visual)
+
+		enemy.body_entered.connect(_on_enemy_body_entered.bind(enemy))
+		enemy.hit.connect(_on_enemy_hit)
+		enemy.defeated.connect(_on_enemy_defeated)
+
+		enemies_root.add_child(enemy)
+		enemies.append(enemy)
 
 func _spawn_flippers() -> void:
 	for child: Node in flippers_root.get_children():
@@ -417,11 +472,22 @@ func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 func _on_bumper_hit(_bumper: Bumper, damage: int) -> void:
 	if _is_victory or _is_game_over:
 		return
-	_enemy_hp -= damage + _bumper_damage_bonus
+	_spawn_damage_popup(damage + _bumper_damage_bonus)
+
+func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
+	if _is_victory or _is_game_over:
+		return
+	if body != ball:
+		return
+	enemy.take_damage(1)
+
+func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 	_update_enemy_hp_label()
 	_spawn_damage_popup(damage)
-	if _enemy_hp <= 0:
-		_enter_victory_state()
+
+func _on_enemy_defeated(_enemy: Enemy) -> void:
+	_update_enemy_hp_label()
+	_enter_victory_state()
 
 func _spawn_damage_popup(damage: int) -> void:
 	var popup_label: Label = Label.new()
@@ -509,7 +575,9 @@ func _get_ball_max_hp() -> int:
 	return BALL_HP_INITIAL + _max_hp_bonus
 
 func _update_enemy_hp_label() -> void:
-	var current_hp: int = _enemy_hp
+	var current_hp: int = 0
+	if enemies.size() > 0 and is_instance_valid(enemies[0]):
+		current_hp = enemies[0].current_hp
 	if current_hp < 0:
 		current_hp = 0
 	enemy_hp_label.text = "Enemy HP: %d" % current_hp
@@ -540,7 +608,9 @@ func _reset_battle() -> void:
 	_is_victory = false
 	_is_game_over = false
 	_is_ball_alive = true
-	_enemy_hp = ENEMY_HP_INITIAL
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy):
+			enemy.current_hp = enemy.max_hp
 	_ball_hp = _get_ball_max_hp()
 	_bullet_fire_elapsed = 0.0
 	_update_enemy_hp_label()
