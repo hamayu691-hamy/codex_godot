@@ -77,6 +77,14 @@ offset_bottom = 46.0
 theme_override_font_sizes/font_size = 24
 text = "Enemy HP: 20"
 
+[node name="ComboLabel" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 50.0
+offset_right = 220.0
+offset_bottom = 74.0
+theme_override_font_sizes/font_size = 20
+text = "Combo: 0"
+
 [node name="VictoryLabel" type="Label" parent="."]
 visible = false
 offset_left = 115.0
