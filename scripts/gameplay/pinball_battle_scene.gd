@@ -46,6 +46,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var enemy_gun_marker: Marker2D = $EnemyGunMarker
 @onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
 @onready var enemy_hp_label: Label = $EnemyHpLabel
+@onready var combo_label: Label = $ComboLabel
 @onready var victory_label: Label = $VictoryLabel
 @onready var game_over_label: Label = $GameOverLabel
 @onready var reward_panel: Panel = $RewardPanel
@@ -182,6 +183,7 @@ var _bumper_damage_bonus: int = 0
 var _max_hp_bonus: int = 0
 var _flipper_power_multiplier: float = 1.0
 var _reward_selected_this_victory: bool = false
+var combo_count: int = 0
 
 func _ready() -> void:
 	_spawn_flippers()
@@ -200,6 +202,7 @@ func _ready() -> void:
 	_setup_ball_hp_bar()
 	_setup_reward_panel()
 	_update_enemy_hp_label()
+	_update_combo_label()
 	victory_label.visible = false
 	game_over_label.visible = false
 	_reset_battle()
@@ -423,6 +426,7 @@ func _spawn_enemy_bullet() -> void:
 
 func _on_drain_body_entered(body: Node2D) -> void:
 	if body == ball and _is_ball_alive:
+		_reset_combo_count()
 		reset_ball()
 
 func _on_ball_body_entered(body: Node) -> void:
@@ -472,6 +476,8 @@ func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 func _on_bumper_hit(_bumper: Bumper, damage: int) -> void:
 	if _is_victory or _is_game_over:
 		return
+	combo_count += 1
+	_update_combo_label()
 	_spawn_damage_popup(damage + _bumper_damage_bonus)
 
 func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
@@ -479,7 +485,10 @@ func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 		return
 	if body != ball:
 		return
-	enemy.take_damage(1)
+	var combo_damage_bonus: int = int(floor(float(combo_count) / 3.0))
+	var total_damage: int = 1 + combo_damage_bonus
+	enemy.take_damage(total_damage)
+	_reset_combo_count()
 
 func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 	_update_enemy_hp_label()
@@ -582,6 +591,13 @@ func _update_enemy_hp_label() -> void:
 		current_hp = 0
 	enemy_hp_label.text = "Enemy HP: %d" % current_hp
 
+func _update_combo_label() -> void:
+	combo_label.text = "Combo: %d" % combo_count
+
+func _reset_combo_count() -> void:
+	combo_count = 0
+	_update_combo_label()
+
 func _damage_ball(damage: int) -> void:
 	if _is_victory or _is_game_over or not _is_ball_alive:
 		return
@@ -613,6 +629,7 @@ func _reset_battle() -> void:
 			enemy.current_hp = enemy.max_hp
 	_ball_hp = _get_ball_max_hp()
 	_bullet_fire_elapsed = 0.0
+	_reset_combo_count()
 	_update_enemy_hp_label()
 	ball_hp_bar.max_value = _ball_hp
 	ball_hp_bar.value = _ball_hp
