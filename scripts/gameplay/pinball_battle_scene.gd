@@ -395,9 +395,10 @@ func _update_enemy_bullets(delta: float) -> void:
 func _spawn_enemy_bullet() -> void:
 	if not _is_ball_alive:
 		return
+	var spawn_position: Vector2 = _get_enemy_bullet_spawn_position()
 	var bullet: Area2D = Area2D.new()
 	bullet.name = "EnemyBullet"
-	bullet.position = enemy_gun_marker.global_position
+	bullet.global_position = spawn_position
 	bullet.set_meta("damage", BULLET_DAMAGE)
 	bullet.collision_layer = 0
 	bullet.collision_mask = 0
@@ -423,6 +424,12 @@ func _spawn_enemy_bullet() -> void:
 		to_ball = Vector2.DOWN
 	bullet.set_meta("velocity", to_ball * BULLET_SPEED)
 	bullets_root.add_child(bullet)
+
+func _get_enemy_bullet_spawn_position() -> Vector2:
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy) and enemy.current_hp > 0:
+			return enemy.global_position
+	return enemy_gun_marker.global_position
 
 func _on_drain_body_entered(body: Node2D) -> void:
 	if body == ball and _is_ball_alive:
