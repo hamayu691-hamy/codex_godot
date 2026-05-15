@@ -186,6 +186,7 @@ var _flipper_power_multiplier: float = 1.0
 var _reward_selected_this_victory: bool = false
 var combo_count: int = 0
 var _next_enemy_hit_bonus_damage: int = 0
+var _bullet_fire_elapsed: float = 0.0
 
 func _ready() -> void:
 	_spawn_flippers()
