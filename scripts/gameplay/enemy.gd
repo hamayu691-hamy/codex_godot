@@ -12,6 +12,10 @@ signal defeated(enemy: Enemy)
 @export var score_value: int = 100
 @export var move_axis: String = "horizontal"
 @export var move_range: float = 80.0
+@export var attack_type: String = "bullet"
+@export var attack_interval: float = 1.1
+
+var _attack_elapsed: float = 0.0
 
 var _start_position: Vector2 = Vector2.ZERO
 var _move_direction: float = 1.0
@@ -46,3 +50,19 @@ func take_damage(damage: int) -> void:
 	if current_hp <= 0:
 		current_hp = 0
 		defeated.emit(self)
+
+func can_attack() -> bool:
+	return current_hp > 0 and attack_interval > 0.0 and attack_type != ""
+
+func should_fire_attack(delta: float) -> bool:
+	if not can_attack():
+		_attack_elapsed = 0.0
+		return false
+	_attack_elapsed += delta
+	if _attack_elapsed >= attack_interval:
+		_attack_elapsed = 0.0
+		return true
+	return false
+
+func reset_attack_timer() -> void:
+	_attack_elapsed = 0.0
