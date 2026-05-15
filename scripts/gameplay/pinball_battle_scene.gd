@@ -2,6 +2,7 @@ extends Node2D
 
 const BALL_START_POSITION: Vector2 = Vector2(200.0, 120.0)
 const BALL_MAX_SPEED: float = 1350.0
+const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
 const DAMAGE_POPUP_RISE: float = 24.0
@@ -47,6 +48,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
 @onready var enemy_hp_label: Label = $EnemyHpLabel
 @onready var combo_label: Label = $ComboLabel
+@onready var bonus_damage_label: Label = $BonusDamageLabel
 @onready var victory_label: Label = $VictoryLabel
 @onready var game_over_label: Label = $GameOverLabel
 @onready var reward_panel: Panel = $RewardPanel
@@ -69,13 +71,13 @@ var bumper_configs: Array[Dictionary] = [
 		"position": Vector2(200.0, 165.0),
 		"damage": 1,
 		"impulse_strength": 130.0,
-		"bumper_type": "normal",
+		"bumper_type": "power",
 	},
 	{
 		"position": Vector2(270.0, 210.0),
 		"damage": 1,
 		"impulse_strength": 130.0,
-		"bumper_type": "normal",
+		"bumper_type": "slow",
 	},
 ]
 
@@ -184,6 +186,7 @@ var _max_hp_bonus: int = 0
 var _flipper_power_multiplier: float = 1.0
 var _reward_selected_this_victory: bool = false
 var combo_count: int = 0
+var _next_enemy_hit_bonus_damage: int = 0
 
 func _ready() -> void:
 	_spawn_flippers()
@@ -203,6 +206,7 @@ func _ready() -> void:
 	_setup_reward_panel()
 	_update_enemy_hp_label()
 	_update_combo_label()
+	_update_bonus_damage_label()
 	victory_label.visible = false
 	game_over_label.visible = false
 	_reset_battle()
@@ -473,11 +477,12 @@ func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 		return
 	bumper.on_ball_entered(ball)
 
-func _on_bumper_hit(_bumper: Bumper, damage: int) -> void:
+func _on_bumper_hit(_bumper: Bumper, bumper_type: String, damage: int) -> void:
 	if _is_victory or _is_game_over:
 		return
-	combo_count += 1
+	_apply_bumper_effect(bumper_type)
 	_update_combo_label()
+	_update_bonus_damage_label()
 	_spawn_damage_popup(damage + _bumper_damage_bonus)
 
 func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
@@ -486,8 +491,10 @@ func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 	if body != ball:
 		return
 	var combo_damage_bonus: int = int(floor(float(combo_count) / 3.0))
-	var total_damage: int = 1 + combo_damage_bonus
+	var total_damage: int = 1 + combo_damage_bonus + _next_enemy_hit_bonus_damage
 	enemy.take_damage(total_damage)
+	_next_enemy_hit_bonus_damage = 0
+	_update_bonus_damage_label()
 	_reset_combo_count()
 
 func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
@@ -594,9 +601,35 @@ func _update_enemy_hp_label() -> void:
 func _update_combo_label() -> void:
 	combo_label.text = "Combo: %d" % combo_count
 
+func _update_bonus_damage_label() -> void:
+	bonus_damage_label.text = "Next Bonus DMG: +%d" % _next_enemy_hit_bonus_damage
+
 func _reset_combo_count() -> void:
 	combo_count = 0
 	_update_combo_label()
+
+func _apply_bumper_effect(bumper_type: String) -> void:
+	match bumper_type:
+		"normal":
+			combo_count += 1
+		"power":
+			combo_count += 2
+			_next_enemy_hit_bonus_damage += 1
+		"heal":
+			if _ball_hp < _get_ball_max_hp():
+				_ball_hp += 1
+				ball_hp_bar.value = _ball_hp
+		"slow":
+			var new_velocity: Vector2 = ball.linear_velocity * 0.8
+			var speed: float = new_velocity.length()
+			if speed < BALL_MIN_SPEED:
+				if speed <= 0.001:
+					new_velocity = Vector2.UP * BALL_MIN_SPEED
+				else:
+					new_velocity = new_velocity.normalized() * BALL_MIN_SPEED
+			ball.linear_velocity = new_velocity
+		_:
+			combo_count += 1
 
 func _damage_ball(damage: int) -> void:
 	if _is_victory or _is_game_over or not _is_ball_alive:
@@ -629,7 +662,9 @@ func _reset_battle() -> void:
 			enemy.current_hp = enemy.max_hp
 	_ball_hp = _get_ball_max_hp()
 	_bullet_fire_elapsed = 0.0
+	_next_enemy_hit_bonus_damage = 0
 	_reset_combo_count()
+	_update_bonus_damage_label()
 	_update_enemy_hp_label()
 	ball_hp_bar.max_value = _ball_hp
 	ball_hp_bar.value = _ball_hp

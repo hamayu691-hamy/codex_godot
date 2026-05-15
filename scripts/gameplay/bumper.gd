@@ -1,7 +1,7 @@
 class_name Bumper
 extends Area2D
 
-signal hit(bumper: Bumper, damage: int)
+signal hit(bumper: Bumper, bumper_type: String, damage: int)
 
 const HIT_SCALE: Vector2 = Vector2(1.15, 1.15)
 const HIT_FLASH_COLOR: Color = Color(0.75, 1.0, 1.0, 1.0)
@@ -26,7 +26,7 @@ func on_ball_entered(ball: RigidBody2D) -> void:
 	_cooldown_remaining = cooldown_time
 	_apply_impulse_to_ball(ball)
 	_play_hit_feedback()
-	hit.emit(self, damage)
+	hit.emit(self, bumper_type, damage)
 
 func _apply_impulse_to_ball(ball: RigidBody2D) -> void:
 	var hit_direction: Vector2 = ball.global_position - global_position

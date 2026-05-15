@@ -85,6 +85,14 @@ offset_bottom = 74.0
 theme_override_font_sizes/font_size = 20
 text = "Combo: 0"
 
+[node name="BonusDamageLabel" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 74.0
+offset_right = 260.0
+offset_bottom = 98.0
+theme_override_font_sizes/font_size = 20
+text = "Next Bonus DMG: +0"
+
 [node name="VictoryLabel" type="Label" parent="."]
 visible = false
 offset_left = 115.0
