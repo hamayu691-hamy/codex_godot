@@ -17,7 +17,6 @@ const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
 const BULLET_SPEED: float = 420.0
 const BULLET_DAMAGE: int = 2
 const BULLET_COLLISION_RADIUS: float = 7.0
-const BULLET_FIRE_INTERVAL: float = 1.1
 const BALL_HP_BAR_SIZE: Vector2 = Vector2(44.0, 7.0)
 const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
 const ENEMY_COLLISION_RADIUS: float = 20.0
@@ -44,7 +43,6 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var enemies_root: Node2D = $Enemies
 @onready var walls_root: Node2D = $Walls
 @onready var bullets_root: Node2D = $Bullets
-@onready var enemy_gun_marker: Marker2D = $EnemyGunMarker
 @onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
 @onready var enemy_hp_label: Label = $EnemyHpLabel
 @onready var combo_label: Label = $ComboLabel
@@ -171,6 +169,8 @@ var enemy_configs: Array[Dictionary] = [
 		"score_value": 100,
 		"move_axis": "horizontal",
 		"move_range": 80.0,
+		"attack_type": "bullet",
+		"attack_interval": 1.1,
 	},
 ]
 
@@ -180,7 +180,6 @@ var _is_victory: bool = false
 var _is_game_over: bool = false
 var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
-var _bullet_fire_elapsed: float = 0.0
 var _bumper_damage_bonus: int = 0
 var _max_hp_bonus: int = 0
 var _flipper_power_multiplier: float = 1.0
@@ -298,6 +297,8 @@ func _spawn_enemies() -> void:
 		enemy.score_value = int(config.get("score_value", 100))
 		enemy.move_axis = str(config.get("move_axis", "horizontal"))
 		enemy.move_range = float(config.get("move_range", 80.0))
+		enemy.attack_type = str(config.get("attack_type", "bullet"))
+		enemy.attack_interval = float(config.get("attack_interval", 1.1))
 
 		var collision_shape: CollisionShape2D = CollisionShape2D.new()
 		var circle_shape: CircleShape2D = CircleShape2D.new()
@@ -391,17 +392,21 @@ func _physics_process(delta: float) -> void:
 func _update_enemy_bullets(delta: float) -> void:
 	if _is_victory or _is_game_over:
 		return
-	_bullet_fire_elapsed += delta
-	if _bullet_fire_elapsed >= BULLET_FIRE_INTERVAL:
-		_bullet_fire_elapsed = 0.0
-		_spawn_enemy_bullet()
+	for enemy: Enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		if enemy.attack_type == "bullet" and enemy.should_fire_attack(delta):
+			_spawn_enemy_bullet(enemy)
 
-func _spawn_enemy_bullet() -> void:
+func _spawn_enemy_bullet(enemy: Enemy) -> void:
 	if not _is_ball_alive:
 		return
+	if not is_instance_valid(enemy):
+		return
+	var spawn_position: Vector2 = enemy.global_position
 	var bullet: Area2D = Area2D.new()
 	bullet.name = "EnemyBullet"
-	bullet.position = enemy_gun_marker.global_position
+	bullet.global_position = spawn_position
 	bullet.set_meta("damage", BULLET_DAMAGE)
 	bullet.collision_layer = 0
 	bullet.collision_mask = 0
@@ -660,6 +665,7 @@ func _reset_battle() -> void:
 	for enemy: Enemy in enemies:
 		if is_instance_valid(enemy):
 			enemy.current_hp = enemy.max_hp
+			enemy.reset_attack_timer()
 	_ball_hp = _get_ball_max_hp()
 	_bullet_fire_elapsed = 0.0
 	_next_enemy_hit_bonus_damage = 0
