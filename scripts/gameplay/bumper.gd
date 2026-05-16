@@ -5,7 +5,15 @@ signal hit(bumper: Bumper, bumper_type: String, damage: int)
 
 const HIT_SCALE: Vector2 = Vector2(1.15, 1.15)
 const HIT_FLASH_COLOR: Color = Color(0.75, 1.0, 1.0, 1.0)
+const MAX_LEVEL: int = 5
 
+@export var base_damage: int = 1
+@export var base_impulse_strength: float = 130.0
+@export var level: int = 1:
+	set(value):
+		level = clampi(value, 1, MAX_LEVEL)
+		_recalculate_stats()
+		_update_level_label()
 @export var damage: int = 1
 @export var impulse_strength: float = 130.0
 @export var bumper_type: String = "normal"
@@ -14,6 +22,12 @@ const HIT_FLASH_COLOR: Color = Color(0.75, 1.0, 1.0, 1.0)
 var _cooldown_remaining: float = 0.0
 
 @onready var _bumper_visual: CanvasItem = get_node_or_null("BumperVisual")
+@onready var _level_label: Label = get_node_or_null("LevelLabel")
+
+
+func _ready() -> void:
+	_recalculate_stats()
+	_update_level_label()
 
 
 func _physics_process(delta: float) -> void:
@@ -121,6 +135,44 @@ func _apply_bomb_bumper_effect(_ball: RigidBody2D) -> void:
 
 func _apply_multiball_bumper_effect(_ball: RigidBody2D) -> void:
 	pass
+
+func level_up() -> bool:
+	if level >= MAX_LEVEL:
+		return false
+	level += 1
+	return true
+
+func _recalculate_stats() -> void:
+	var level_index: int = level - 1
+	damage = maxi(1, int(round(base_damage * _get_damage_growth_multiplier(level_index))))
+	impulse_strength = base_impulse_strength * _get_impulse_growth_multiplier(level_index)
+
+func _update_level_label() -> void:
+	if _level_label == null:
+		return
+	_level_label.text = "Lv.%d" % level
+
+func _get_damage_growth_multiplier(level_index: int) -> float:
+	match bumper_type:
+		"power":
+			return 1.0 + (0.28 * level_index)
+		"slow":
+			return 1.0 + (0.18 * level_index)
+		"heal":
+			return 1.0 + (0.22 * level_index)
+		_:
+			return 1.0 + (0.2 * level_index)
+
+func _get_impulse_growth_multiplier(level_index: int) -> float:
+	match bumper_type:
+		"power":
+			return 1.0 + (0.12 * level_index)
+		"slow":
+			return 1.0 + (0.1 * level_index)
+		"heal":
+			return 1.0 + (0.08 * level_index)
+		_:
+			return 1.0 + (0.1 * level_index)
 
 func _apply_impulse_to_ball(ball: RigidBody2D) -> void:
 	var hit_direction: Vector2 = ball.global_position - global_position
