@@ -280,7 +280,7 @@ func _spawn_bumpers() -> void:
 		var level_label: Label = Label.new()
 		level_label.name = "LevelLabel"
 		level_label.position = Vector2(10.0, 10.0)
-		level_label.theme_override_font_sizes.font_size = 12
+		level_label.add_theme_font_size_override("font_size", 12)
 		level_label.modulate = Color(1.0, 1.0, 1.0, 0.95)
 		level_label.text = "Lv.1"
 		bumper.add_child(level_label)
