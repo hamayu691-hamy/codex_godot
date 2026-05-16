@@ -495,7 +495,7 @@ func _on_bumper_hit(_bumper: Bumper, bumper_type: String, damage: int) -> void:
 	_apply_bumper_effect(bumper_type)
 	_update_combo_label()
 	_update_bonus_damage_label()
-	_spawn_damage_popup(damage + _bumper_damage_bonus)
+	_spawn_damage_popup(damage)
 
 func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 	if _is_victory or _is_game_over:
