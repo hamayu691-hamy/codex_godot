@@ -208,6 +208,7 @@ var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
 var _reward_selected_this_victory: bool = false
 var _current_reward_options: Array[String] = []
+var _reward_levels: Dictionary = {}
 var _slow_effect_multiplier: float = 1.0
 var combo_count: int = 0
 var _next_enemy_hit_bonus_damage: int = 0
@@ -607,6 +608,7 @@ func _on_reward_button_pressed(button_index: int) -> void:
 	_reward_selected_this_victory = true
 	var reward_id: String = _current_reward_options[button_index]
 	_apply_reward(reward_id)
+	_increment_reward_level(reward_id)
 	reward_status_label.text = _get_reward_result_text(reward_id)
 	for button: Button in reward_option_buttons:
 		button.disabled = true
@@ -614,17 +616,24 @@ func _on_reward_button_pressed(button_index: int) -> void:
 	_start_next_battle_placeholder()
 
 func _get_reward_label(reward_id: String) -> String:
+	var current_level: int = _get_reward_level(reward_id)
 	match reward_id:
 		"normal_to_power":
-			return "normalをpowerに変化"
+			return "normalをpowerに変化 (Lv.%d)" % current_level
 		"random_bumper_damage":
-			return "ランダムなバンパー damage +1"
+			return "ランダムなバンパー damage +1 (Lv.%d)" % current_level
 		"add_heal_bumper":
-			return "healバンパーを1つ追加"
+			return "healバンパーを1つ追加 (Lv.%d)" % current_level
 		"enhance_slow":
-			return "slowバンパー効果を強化"
+			return "slowバンパー効果を強化 (Lv.%d)" % current_level
 		_:
 			return "不明な報酬"
+
+func _get_reward_level(reward_id: String) -> int:
+	return int(_reward_levels.get(reward_id, 0)) + 1
+
+func _increment_reward_level(reward_id: String) -> void:
+	_reward_levels[reward_id] = int(_reward_levels.get(reward_id, 0)) + 1
 
 func _get_reward_result_text(reward_id: String) -> String:
 	match reward_id:
