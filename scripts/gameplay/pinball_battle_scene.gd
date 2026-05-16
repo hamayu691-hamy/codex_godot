@@ -206,6 +206,7 @@ var _flippers: Array[Dictionary] = []
 var _ball_hp: int = BALL_HP_INITIAL
 var _is_victory: bool = false
 var _is_game_over: bool = false
+var _debug_enemy_zero_hp_key_was_down: bool = false
 var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
 var _reward_selected_this_victory: bool = false
@@ -390,8 +391,11 @@ func _spawn_flippers() -> void:
 		})
 
 func _physics_process(delta: float) -> void:
-	if DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND and Input.is_key_just_pressed(DEBUG_ENEMY_ZERO_HP_KEY):
-		_debug_zero_enemy_hp()
+	if DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND:
+		var is_debug_key_down: bool = Input.is_key_pressed(DEBUG_ENEMY_ZERO_HP_KEY)
+		if is_debug_key_down and not _debug_enemy_zero_hp_key_was_down:
+			_debug_zero_enemy_hp()
+		_debug_enemy_zero_hp_key_was_down = is_debug_key_down
 
 	if Input.is_key_pressed(KEY_R):
 		_reset_battle()
