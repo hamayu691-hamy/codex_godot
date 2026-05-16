@@ -19,6 +19,25 @@ const BALL_HP_INITIAL: int = 20
 const BUMPER_GROUP: StringName = &"bumpers"
 const BUMPER_COLLISION_RADIUS: float = 18.0
 const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
+const BUMPER_VISUAL_COLOR_BY_TYPE: Dictionary = {
+	"normal": Color(0.2, 0.9, 0.95, 1.0),
+	"power": Color(0.95, 0.45, 0.35, 1.0),
+	"heal": Color(0.35, 0.9, 0.45, 1.0),
+	"slow": Color(0.45, 0.55, 0.95, 1.0),
+	"charge": Color(0.9, 0.85, 0.3, 1.0),
+	"critical": Color(0.95, 0.3, 0.6, 1.0),
+	"pierce": Color(0.7, 0.7, 0.78, 1.0),
+	"combo_plus": Color(0.9, 0.5, 0.95, 1.0),
+	"combo_lock": Color(0.55, 0.35, 0.95, 1.0),
+	"jackpot": Color(0.95, 0.75, 0.25, 1.0),
+	"spawn": Color(0.25, 0.95, 0.85, 1.0),
+	"transform": Color(0.7, 0.45, 0.95, 1.0),
+	"shield": Color(0.35, 0.85, 0.95, 1.0),
+	"poison": Color(0.55, 0.9, 0.3, 1.0),
+	"lightning": Color(0.98, 0.95, 0.45, 1.0),
+	"bomb": Color(0.35, 0.35, 0.35, 1.0),
+	"multiball": Color(0.95, 0.6, 0.9, 1.0),
+}
 const BULLET_SPEED: float = 420.0
 const BULLET_DAMAGE: int = 2
 const BULLET_COLLISION_RADIUS: float = 7.0
@@ -246,11 +265,14 @@ func _spawn_bumpers() -> void:
 
 		var bumper_visual: Polygon2D = Polygon2D.new()
 		bumper_visual.name = "BumperVisual"
-		bumper_visual.color = BUMPER_VISUAL_COLOR
+		bumper_visual.color = _get_bumper_visual_color(bumper.bumper_type)
 		bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		bumper.add_child(bumper_visual)
 
 		bumpers_root.add_child(bumper)
+
+func _get_bumper_visual_color(bumper_type: String) -> Color:
+	return BUMPER_VISUAL_COLOR_BY_TYPE.get(bumper_type, BUMPER_VISUAL_COLOR)
 
 func _spawn_walls() -> void:
 	for child: Node in walls_root.get_children():
