@@ -15,6 +15,8 @@ const REWARD_OPTION_IDS: Array[String] = [
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
+const DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND: bool = true
+const DEBUG_ENEMY_ZERO_HP_KEY: Key = KEY_K
 const BALL_HP_INITIAL: int = 20
 const BUMPER_GROUP: StringName = &"bumpers"
 const BUMPER_COLLISION_RADIUS: float = 18.0
@@ -388,6 +390,9 @@ func _spawn_flippers() -> void:
 		})
 
 func _physics_process(delta: float) -> void:
+	if DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND and Input.is_key_just_pressed(DEBUG_ENEMY_ZERO_HP_KEY):
+		_debug_zero_enemy_hp()
+
 	if Input.is_key_pressed(KEY_R):
 		_reset_battle()
 		return
@@ -418,6 +423,13 @@ func _physics_process(delta: float) -> void:
 
 	_update_enemy_bullets(delta)
 	_update_damage_popups(delta)
+
+func _debug_zero_enemy_hp() -> void:
+	if _is_victory or _is_game_over:
+		return
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy) and enemy.current_hp > 0:
+			enemy.take_damage(enemy.current_hp)
 
 func _update_enemy_bullets(delta: float) -> void:
 	if _is_victory or _is_game_over:
