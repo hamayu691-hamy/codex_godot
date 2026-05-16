@@ -6,11 +6,16 @@ const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
 const DAMAGE_POPUP_RISE: float = 24.0
+const REWARD_OPTION_IDS: Array[String] = [
+	"normal_to_power",
+	"random_bumper_damage",
+	"add_heal_bumper",
+	"enhance_slow",
+]
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
 const BALL_HP_INITIAL: int = 20
-const REWARD_FLIPPER_POWER_MULTIPLIER_STEP: float = 0.1
 const BUMPER_GROUP: StringName = &"bumpers"
 const BUMPER_COLLISION_RADIUS: float = 18.0
 const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
@@ -52,9 +57,11 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var reward_panel: Panel = $RewardPanel
 @onready var reward_header_label: Label = $RewardPanel/RewardHeaderLabel
 @onready var reward_status_label: Label = $RewardPanel/RewardStatusLabel
-@onready var reward_bumper_button: Button = $RewardPanel/RewardButtons/BumperDamageButton
-@onready var reward_max_hp_button: Button = $RewardPanel/RewardButtons/MaxHpButton
-@onready var reward_flipper_button: Button = $RewardPanel/RewardButtons/FlipperPowerButton
+@onready var reward_option_buttons: Array[Button] = [
+	$RewardPanel/RewardButtons/BumperDamageButton,
+	$RewardPanel/RewardButtons/MaxHpButton,
+	$RewardPanel/RewardButtons/FlipperPowerButton,
+]
 @onready var bumpers: Array[Bumper] = []
 @onready var enemies: Array[Enemy] = []
 
@@ -180,10 +187,9 @@ var _is_victory: bool = false
 var _is_game_over: bool = false
 var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
-var _bumper_damage_bonus: int = 0
-var _max_hp_bonus: int = 0
-var _flipper_power_multiplier: float = 1.0
 var _reward_selected_this_victory: bool = false
+var _current_reward_options: Array[String] = []
+var _slow_effect_multiplier: float = 1.0
 var combo_count: int = 0
 var _next_enemy_hit_bonus_damage: int = 0
 var _bullet_fire_elapsed: float = 0.0
@@ -463,7 +469,7 @@ func _apply_flipper_impulse(flipper: StaticBody2D, config: Dictionary) -> void:
 	if pivot_to_ball != Vector2.ZERO:
 		impulse_direction = (impulse_direction + pivot_to_ball * 0.35).normalized()
 	var hit_impulse: float = float(config.get("hit_impulse", 1600.0))
-	var impulse: Vector2 = impulse_direction * hit_impulse * _flipper_power_multiplier
+	var impulse: Vector2 = impulse_direction * hit_impulse
 	ball.apply_central_impulse(impulse)
 
 func reset_ball() -> void:
@@ -554,9 +560,8 @@ func _enter_victory_state() -> void:
 
 func _setup_reward_panel() -> void:
 	reward_panel.visible = false
-	reward_bumper_button.pressed.connect(_on_reward_selected.bind("bumper_damage"))
-	reward_max_hp_button.pressed.connect(_on_reward_selected.bind("max_hp"))
-	reward_flipper_button.pressed.connect(_on_reward_selected.bind("flipper_power"))
+	for index: int in range(reward_option_buttons.size()):
+		reward_option_buttons[index].pressed.connect(_on_reward_button_pressed.bind(index))
 	reward_header_label.text = "報酬を1つ選んでください"
 	reward_status_label.text = ""
 
@@ -564,29 +569,78 @@ func _show_reward_panel() -> void:
 	_reward_selected_this_victory = false
 	reward_panel.visible = true
 	reward_status_label.text = ""
-	reward_bumper_button.disabled = false
-	reward_max_hp_button.disabled = false
-	reward_flipper_button.disabled = false
+	_current_reward_options = REWARD_OPTION_IDS.duplicate()
+	_current_reward_options.shuffle()
+	_current_reward_options = _current_reward_options.slice(0, reward_option_buttons.size())
+	for index: int in range(reward_option_buttons.size()):
+		var button: Button = reward_option_buttons[index]
+		button.disabled = false
+		button.text = _get_reward_label(_current_reward_options[index])
 
-func _on_reward_selected(reward_id: String) -> void:
+func _on_reward_button_pressed(button_index: int) -> void:
 	if _reward_selected_this_victory:
 		return
+	if button_index < 0 or button_index >= _current_reward_options.size():
+		return
 	_reward_selected_this_victory = true
-	match reward_id:
-		"bumper_damage":
-			_bumper_damage_bonus += 1
-			reward_status_label.text = "バンパーダメージ +1 を獲得"
-		"max_hp":
-			_max_hp_bonus += 5
-			reward_status_label.text = "最大HP +5 を獲得"
-		"flipper_power":
-			_flipper_power_multiplier += REWARD_FLIPPER_POWER_MULTIPLIER_STEP
-			reward_status_label.text = "フリッパー打ち返し力 +10% を獲得"
-	reward_bumper_button.disabled = true
-	reward_max_hp_button.disabled = true
-	reward_flipper_button.disabled = true
+	var reward_id: String = _current_reward_options[button_index]
+	_apply_reward(reward_id)
+	reward_status_label.text = _get_reward_result_text(reward_id)
+	for button: Button in reward_option_buttons:
+		button.disabled = true
 	reward_header_label.text = "次ステージ（仮）へ進みます"
 	_start_next_battle_placeholder()
+
+func _get_reward_label(reward_id: String) -> String:
+	match reward_id:
+		"normal_to_power":
+			return "normalをpowerに変化"
+		"random_bumper_damage":
+			return "ランダムなバンパー damage +1"
+		"add_heal_bumper":
+			return "healバンパーを1つ追加"
+		"enhance_slow":
+			return "slowバンパー効果を強化"
+		_:
+			return "不明な報酬"
+
+func _get_reward_result_text(reward_id: String) -> String:
+	match reward_id:
+		"normal_to_power":
+			return "normalバンパーをpowerに変化しました"
+		"random_bumper_damage":
+			return "ランダムなバンパーのdamageが+1されました"
+		"add_heal_bumper":
+			return "healバンパーを追加しました"
+		"enhance_slow":
+			return "slowバンパー効果を強化しました"
+		_:
+			return "報酬を獲得しました"
+
+func _apply_reward(reward_id: String) -> void:
+	match reward_id:
+		"normal_to_power":
+			for config: Dictionary in bumper_configs:
+				if str(config.get("bumper_type", "normal")) == "normal":
+					config["bumper_type"] = "power"
+					return
+		"random_bumper_damage":
+			if bumper_configs.is_empty():
+				return
+			var random_index: int = randi() % bumper_configs.size()
+			var selected_config: Dictionary = bumper_configs[random_index]
+			selected_config["damage"] = int(selected_config.get("damage", 1)) + 1
+			bumper_configs[random_index] = selected_config
+		"add_heal_bumper":
+			var heal_bumper_config: Dictionary = {
+				"position": Vector2(200.0, 250.0),
+				"damage": 1,
+				"impulse_strength": 130.0,
+				"bumper_type": "heal",
+			}
+			bumper_configs.append(heal_bumper_config)
+		"enhance_slow":
+			_slow_effect_multiplier += 0.25
 
 func _start_next_battle_placeholder() -> void:
 	await get_tree().create_timer(0.8).timeout
@@ -594,7 +648,7 @@ func _start_next_battle_placeholder() -> void:
 	_reset_battle()
 
 func _get_ball_max_hp() -> int:
-	return BALL_HP_INITIAL + _max_hp_bonus
+	return BALL_HP_INITIAL
 
 func _update_enemy_hp_label() -> void:
 	var current_hp: int = 0
@@ -626,7 +680,8 @@ func _apply_bumper_effect(bumper_type: String) -> void:
 				_ball_hp += 1
 				ball_hp_bar.value = _ball_hp
 		"slow":
-			var new_velocity: Vector2 = ball.linear_velocity * 0.8
+			var slow_rate: float = max(0.2, 0.8 - ((_slow_effect_multiplier - 1.0) * 0.15))
+			var new_velocity: Vector2 = ball.linear_velocity * slow_rate
 			var speed: float = new_velocity.length()
 			if speed < BALL_MIN_SPEED:
 				if speed <= 0.001:
@@ -663,6 +718,15 @@ func _reset_battle() -> void:
 	_is_victory = false
 	_is_game_over = false
 	_is_ball_alive = true
+	_spawn_bumpers()
+	bumpers.clear()
+	for bumper_node: Node in bumpers_root.get_children():
+		if bumper_node is Bumper:
+			var bumper: Bumper = bumper_node
+			bumpers.append(bumper)
+			bumper.add_to_group(BUMPER_GROUP)
+			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
+			bumper.hit.connect(_on_bumper_hit)
 	for enemy: Enemy in enemies:
 		if is_instance_valid(enemy):
 			enemy.current_hp = enemy.max_hp
