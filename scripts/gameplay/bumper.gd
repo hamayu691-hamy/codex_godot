@@ -25,8 +25,102 @@ func on_ball_entered(ball: RigidBody2D) -> void:
 		return
 	_cooldown_remaining = cooldown_time
 	_apply_impulse_to_ball(ball)
+	_apply_bumper_effect(ball)
 	_play_hit_feedback()
 	hit.emit(self, bumper_type, damage)
+
+func _apply_bumper_effect(ball: RigidBody2D) -> void:
+	match bumper_type:
+		"normal":
+			_apply_normal_bumper_effect(ball)
+		"heal":
+			_apply_heal_bumper_effect(ball)
+		"slow":
+			_apply_slow_bumper_effect(ball)
+		"charge":
+			_apply_charge_bumper_effect(ball)
+		"power":
+			_apply_power_bumper_effect(ball)
+		"critical":
+			_apply_critical_bumper_effect(ball)
+		"pierce":
+			_apply_pierce_bumper_effect(ball)
+		"combo_plus":
+			_apply_combo_plus_bumper_effect(ball)
+		"combo_lock":
+			_apply_combo_lock_bumper_effect(ball)
+		"jackpot":
+			_apply_jackpot_bumper_effect(ball)
+		"spawn":
+			_apply_spawn_bumper_effect(ball)
+		"transform":
+			_apply_transform_bumper_effect(ball)
+		"shield":
+			_apply_shield_bumper_effect(ball)
+		"poison":
+			_apply_poison_bumper_effect(ball)
+		"lightning":
+			_apply_lightning_bumper_effect(ball)
+		"bomb":
+			_apply_bomb_bumper_effect(ball)
+		"multiball":
+			_apply_multiball_bumper_effect(ball)
+		_:
+			_apply_normal_bumper_effect(ball)
+
+func _apply_normal_bumper_effect(_ball: RigidBody2D) -> void:
+	# 通常バンパー: 追加効果なし
+	pass
+
+func _apply_power_bumper_effect(_ball: RigidBody2D) -> void:
+	# 攻撃補助系(power): 次回敵ヒットダメージ増加
+	# TODO: ゲーム側の状態管理実装後に適用処理を追加する
+	pass
+
+func _apply_heal_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_slow_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_charge_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_critical_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_pierce_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_combo_plus_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_combo_lock_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_jackpot_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_spawn_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_transform_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_shield_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_poison_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_lightning_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_bomb_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_multiball_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
 
 func _apply_impulse_to_ball(ball: RigidBody2D) -> void:
 	var hit_direction: Vector2 = ball.global_position - global_position
