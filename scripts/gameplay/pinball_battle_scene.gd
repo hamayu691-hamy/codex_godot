@@ -89,18 +89,21 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 var bumper_configs: Array[Dictionary] = [
 	{
 		"position": Vector2(130.0, 210.0),
+		"level": 1,
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "normal",
 	},
 	{
 		"position": Vector2(200.0, 165.0),
+		"level": 1,
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "power",
 	},
 	{
 		"position": Vector2(270.0, 210.0),
+		"level": 1,
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "slow",
@@ -257,9 +260,10 @@ func _spawn_bumpers() -> void:
 		var bumper: Bumper = Bumper.new()
 		bumper.name = "Bumper%d" % (index + 1)
 		bumper.position = config.get("position", Vector2.ZERO)
-		bumper.damage = int(config.get("damage", 1))
-		bumper.impulse_strength = float(config.get("impulse_strength", 130.0))
+		bumper.base_damage = int(config.get("damage", 1))
+		bumper.base_impulse_strength = float(config.get("impulse_strength", 130.0))
 		bumper.bumper_type = str(config.get("bumper_type", "normal"))
+		bumper.level = int(config.get("level", 1))
 
 		var collision_shape: CollisionShape2D = CollisionShape2D.new()
 		var circle_shape: CircleShape2D = CircleShape2D.new()
@@ -272,6 +276,14 @@ func _spawn_bumpers() -> void:
 		bumper_visual.color = _get_bumper_visual_color(bumper.bumper_type)
 		bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		bumper.add_child(bumper_visual)
+
+		var level_label: Label = Label.new()
+		level_label.name = "LevelLabel"
+		level_label.position = Vector2(10.0, 10.0)
+		level_label.theme_override_font_sizes.font_size = 12
+		level_label.modulate = Color(1.0, 1.0, 1.0, 0.95)
+		level_label.text = "Lv.1"
+		bumper.add_child(level_label)
 
 		bumpers_root.add_child(bumper)
 
@@ -637,7 +649,7 @@ func _get_reward_label(reward_id: String) -> String:
 		"normal_to_power":
 			return "normalをpowerに変化 (Lv.%d)" % current_level
 		"random_bumper_damage":
-			return "ランダムなバンパー damage +1 (Lv.%d)" % current_level
+			return "ランダムなバンパー Lv+1 (最大Lv.%d) (Lv.%d)" % [Bumper.MAX_LEVEL, current_level]
 		"add_heal_bumper":
 			return "healバンパーを1つ追加 (Lv.%d)" % current_level
 		"enhance_slow":
@@ -656,7 +668,7 @@ func _get_reward_result_text(reward_id: String) -> String:
 		"normal_to_power":
 			return "normalバンパーをpowerに変化しました"
 		"random_bumper_damage":
-			return "ランダムなバンパーのdamageが+1されました"
+			return "ランダムなバンパーのLvが1上がりました（最大Lv.%d）" % Bumper.MAX_LEVEL
 		"add_heal_bumper":
 			return "healバンパーを追加しました"
 		"enhance_slow":
@@ -676,11 +688,13 @@ func _apply_reward(reward_id: String) -> void:
 				return
 			var random_index: int = randi() % bumper_configs.size()
 			var selected_config: Dictionary = bumper_configs[random_index]
-			selected_config["damage"] = int(selected_config.get("damage", 1)) + 1
+			var current_level: int = int(selected_config.get("level", 1))
+			selected_config["level"] = mini(current_level + 1, Bumper.MAX_LEVEL)
 			bumper_configs[random_index] = selected_config
 		"add_heal_bumper":
 			var heal_bumper_config: Dictionary = {
 				"position": Vector2(200.0, 250.0),
+				"level": 1,
 				"damage": 1,
 				"impulse_strength": 130.0,
 				"bumper_type": "heal",
