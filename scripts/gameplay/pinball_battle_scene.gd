@@ -1,7 +1,9 @@
 extends Node2D
 
 const BALL_START_POSITION: Vector2 = Vector2(200.0, 120.0)
-const BALL_MAX_SPEED: float = 1350.0
+const BALL_MAX_SPEED: float = 1150.0
+const BALL_FLIPPER_POST_HIT_MAX_SPEED: float = BALL_MAX_SPEED
+const SLOPE_WALL_MIN_THICKNESS: float = 25.0
 const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
@@ -144,8 +146,10 @@ var wall_configs: Array[Dictionary] = [
 	{
 		"name": "LeftFlipperGuideWall",
 		"position": Vector2(118.0, 454.0),
-		"size": Vector2(240.0, 16.0),
+		"size": Vector2(240.0, 18.0),
 		"rotation": 0.9,
+		"is_slope": true,
+		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
@@ -153,8 +157,10 @@ var wall_configs: Array[Dictionary] = [
 	{
 		"name": "RightFlipperGuideWall",
 		"position": Vector2(282.0, 454.0),
-		"size": Vector2(240.0, 16.0),
+		"size": Vector2(240.0, 18.0),
 		"rotation": -0.9,
+		"is_slope": true,
+		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
@@ -226,6 +232,7 @@ var _hovered_bumper: Bumper = null
 
 func _ready() -> void:
 	_spawn_flippers()
+	ball.continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
 	_spawn_walls()
@@ -324,6 +331,15 @@ func _spawn_bumpers() -> void:
 func _get_bumper_visual_color(bumper_type: String) -> Color:
 	return BUMPER_VISUAL_COLOR_BY_TYPE.get(bumper_type, BUMPER_VISUAL_COLOR)
 
+
+func _get_wall_size(config: Dictionary) -> Vector2:
+	var size: Vector2 = config.get("size", Vector2(20.0, 20.0))
+	if bool(config.get("is_slope", false)):
+		var min_thickness: float = float(config.get("min_thickness", SLOPE_WALL_MIN_THICKNESS))
+		if size.y < min_thickness:
+			size.y = min_thickness
+	return size
+
 func _spawn_walls() -> void:
 	for child: Node in walls_root.get_children():
 		child.queue_free()
@@ -338,7 +354,7 @@ func _spawn_walls() -> void:
 		physics_material.friction = float(config.get("friction", 1.0))
 		wall.physics_material_override = physics_material
 
-		var size: Vector2 = config.get("size", Vector2(20.0, 20.0))
+		var size: Vector2 = _get_wall_size(config)
 		var collision_shape: CollisionShape2D = CollisionShape2D.new()
 		collision_shape.name = "CollisionShape2D"
 		var rectangle_shape: RectangleShape2D = RectangleShape2D.new()
@@ -466,13 +482,17 @@ func _physics_process(delta: float) -> void:
 		state["previous_rotation"] = flipper.rotation
 		_flippers[index] = state
 
-	if _is_ball_alive:
-		var speed: float = ball.linear_velocity.length()
-		if speed > BALL_MAX_SPEED and not _is_victory:
-			ball.linear_velocity = ball.linear_velocity.normalized() * BALL_MAX_SPEED
+	if _is_ball_alive and not _is_victory:
+		_cap_ball_speed(BALL_MAX_SPEED)
 
 	_update_enemy_bullets(delta)
 	_update_damage_popups(delta)
+
+
+func _cap_ball_speed(max_speed: float) -> void:
+	var speed: float = ball.linear_velocity.length()
+	if speed > max_speed and speed > 0.0:
+		ball.linear_velocity = ball.linear_velocity.normalized() * max_speed
 
 func _debug_zero_enemy_hp() -> void:
 	if _is_victory or _is_game_over:
@@ -556,6 +576,7 @@ func _apply_flipper_impulse(flipper: StaticBody2D, config: Dictionary) -> void:
 	var hit_impulse: float = float(config.get("hit_impulse", 1600.0))
 	var impulse: Vector2 = impulse_direction * hit_impulse
 	ball.apply_central_impulse(impulse)
+	_cap_ball_speed(BALL_FLIPPER_POST_HIT_MAX_SPEED)
 
 func reset_ball() -> void:
 	if not _is_ball_alive:
@@ -566,6 +587,7 @@ func reset_ball() -> void:
 	ball.angular_velocity = 0.0
 	ball.sleeping = false
 	ball.apply_central_impulse(BALL_LAUNCH_IMPULSE)
+	_cap_ball_speed(BALL_MAX_SPEED)
 
 func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 	if _is_victory or _is_game_over:
