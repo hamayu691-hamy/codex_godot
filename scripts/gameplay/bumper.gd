@@ -7,6 +7,46 @@ const HIT_SCALE: Vector2 = Vector2(1.15, 1.15)
 const HIT_FLASH_COLOR: Color = Color(0.75, 1.0, 1.0, 1.0)
 const MAX_LEVEL: int = 5
 
+const BUMPER_DISPLAY_NAMES: Dictionary = {
+	"normal": "Normal Bumper",
+	"power": "Power Bumper",
+	"heal": "Heal Bumper",
+	"slow": "Slow Bumper",
+	"charge": "Charge Bumper",
+	"critical": "Critical Bumper",
+	"pierce": "Pierce Bumper",
+	"combo_plus": "Combo+ Bumper",
+	"combo_lock": "Combo Lock Bumper",
+	"jackpot": "Jackpot Bumper",
+	"spawn": "Spawn Bumper",
+	"transform": "Transform Bumper",
+	"shield": "Shield Bumper",
+	"poison": "Poison Bumper",
+	"lightning": "Lightning Bumper",
+	"bomb": "Bomb Bumper",
+	"multiball": "Multiball Bumper",
+}
+
+const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
+	"normal": "基本効果のみの標準バンパー。",
+	"power": "次回の敵ヒットダメージ増加を狙う攻撃補助。",
+	"heal": "ボールやプレイヤーの回復に関わる効果（実装予定含む）。",
+	"slow": "敵や弾などの行動速度低下を狙う効果。",
+	"charge": "チャージ系の蓄積や解放に関わる効果。",
+	"critical": "クリティカル関連の強化効果。",
+	"pierce": "貫通系の補助効果。",
+	"combo_plus": "コンボ増加を補助する効果。",
+	"combo_lock": "コンボ維持を補助する効果。",
+	"jackpot": "高リターン獲得を狙う特殊効果。",
+	"spawn": "生成系（追加出現など）に関わる効果。",
+	"transform": "対象変化に関わる効果。",
+	"shield": "防御・被ダメ軽減を補助する効果。",
+	"poison": "継続ダメージ付与を狙う効果。",
+	"lightning": "電撃系の追加効果。",
+	"bomb": "範囲爆発系の追加効果。",
+	"multiball": "ボール増加に関わる効果。",
+}
+
 @export var base_damage: int = 1
 @export var base_impulse_strength: float = 130.0
 @export var level: int = 1:
@@ -191,3 +231,19 @@ func _play_hit_feedback() -> void:
 	var scale_tween: Tween = create_tween()
 	scale_tween.tween_property(self, "scale", HIT_SCALE, 0.06)
 	scale_tween.tween_property(self, "scale", Vector2.ONE, 0.1)
+
+
+func get_tooltip_text() -> String:
+	var display_name: String = str(BUMPER_DISPLAY_NAMES.get(bumper_type, "Unknown Bumper"))
+	var effect_description: String = str(BUMPER_EFFECT_DESCRIPTIONS.get(bumper_type, "効果説明は未登録です。"))
+	var cooldown_state: String = "はい"
+	if _cooldown_remaining <= 0.0:
+		cooldown_state = "いいえ"
+	return "バンパー名: %s\n種別: %s\n効果: %s\nDamage: %d\nCooldown: %.2f 秒\nクールダウン中: %s" % [
+		display_name,
+		bumper_type,
+		effect_description,
+		damage,
+		cooldown_time,
+		cooldown_state,
+	]
