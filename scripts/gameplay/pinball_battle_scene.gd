@@ -1,8 +1,9 @@
 extends Node2D
 
 const BALL_START_POSITION: Vector2 = Vector2(200.0, 120.0)
-const BALL_MAX_SPEED: float = 1200.0
-const SLOPE_WALL_MIN_THICKNESS: float = 22.0
+const BALL_MAX_SPEED: float = 1150.0
+const BALL_FLIPPER_POST_HIT_MAX_SPEED: float = BALL_MAX_SPEED
+const SLOPE_WALL_MIN_THICKNESS: float = 24.0
 const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
@@ -481,13 +482,17 @@ func _physics_process(delta: float) -> void:
 		state["previous_rotation"] = flipper.rotation
 		_flippers[index] = state
 
-	if _is_ball_alive:
-		var speed: float = ball.linear_velocity.length()
-		if speed > BALL_MAX_SPEED and not _is_victory:
-			ball.linear_velocity = ball.linear_velocity.normalized() * BALL_MAX_SPEED
+	if _is_ball_alive and not _is_victory:
+		_cap_ball_speed(BALL_MAX_SPEED)
 
 	_update_enemy_bullets(delta)
 	_update_damage_popups(delta)
+
+
+func _cap_ball_speed(max_speed: float) -> void:
+	var speed: float = ball.linear_velocity.length()
+	if speed > max_speed and speed > 0.0:
+		ball.linear_velocity = ball.linear_velocity.normalized() * max_speed
 
 func _debug_zero_enemy_hp() -> void:
 	if _is_victory or _is_game_over:
@@ -571,6 +576,7 @@ func _apply_flipper_impulse(flipper: StaticBody2D, config: Dictionary) -> void:
 	var hit_impulse: float = float(config.get("hit_impulse", 1600.0))
 	var impulse: Vector2 = impulse_direction * hit_impulse
 	ball.apply_central_impulse(impulse)
+	_cap_ball_speed(BALL_FLIPPER_POST_HIT_MAX_SPEED)
 
 func reset_ball() -> void:
 	if not _is_ball_alive:
@@ -581,6 +587,7 @@ func reset_ball() -> void:
 	ball.angular_velocity = 0.0
 	ball.sleeping = false
 	ball.apply_central_impulse(BALL_LAUNCH_IMPULSE)
+	_cap_ball_speed(BALL_MAX_SPEED)
 
 func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 	if _is_victory or _is_game_over:
