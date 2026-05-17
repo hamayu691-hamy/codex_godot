@@ -152,3 +152,17 @@ offset_right = 304.0
 offset_bottom = 202.0
 theme_override_font_sizes/font_size = 14
 text = ""
+
+[node name="BumperTooltipPanel" type="PanelContainer" parent="."]
+visible = false
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 272.0
+offset_bottom = 148.0
+mouse_filter = 2
+
+[node name="BumperTooltipLabel" type="Label" parent="BumperTooltipPanel"]
+custom_minimum_size = Vector2(240, 116)
+theme_override_font_sizes/font_size = 14
+autowrap_mode = 3
+text = ""

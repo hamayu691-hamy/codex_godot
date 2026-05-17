@@ -43,6 +43,7 @@ const BUMPER_VISUAL_COLOR_BY_TYPE: Dictionary = {
 const BULLET_SPEED: float = 420.0
 const BULLET_DAMAGE: int = 2
 const BULLET_COLLISION_RADIUS: float = 7.0
+const BUMPER_TOOLTIP_OFFSET: Vector2 = Vector2(16.0, 16.0)
 const BALL_HP_BAR_SIZE: Vector2 = Vector2(44.0, 7.0)
 const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
 const ENEMY_COLLISION_RADIUS: float = 20.0
@@ -78,6 +79,8 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var reward_panel: Panel = $RewardPanel
 @onready var reward_header_label: Label = $RewardPanel/RewardHeaderLabel
 @onready var reward_status_label: Label = $RewardPanel/RewardStatusLabel
+@onready var bumper_tooltip_panel: PanelContainer = $BumperTooltipPanel
+@onready var bumper_tooltip_label: Label = $BumperTooltipPanel/BumperTooltipLabel
 @onready var reward_option_buttons: Array[Button] = [
 	$RewardPanel/RewardButtons/BumperDamageButton,
 	$RewardPanel/RewardButtons/MaxHpButton,
@@ -219,6 +222,7 @@ var _slow_effect_multiplier: float = 1.0
 var combo_count: int = 0
 var _next_enemy_hit_bonus_damage: int = 0
 var _bullet_fire_elapsed: float = 0.0
+var _hovered_bumper: Bumper = null
 
 func _ready() -> void:
 	_spawn_flippers()
@@ -234,6 +238,9 @@ func _ready() -> void:
 			bumper.add_to_group(BUMPER_GROUP)
 			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
 			bumper.hit.connect(_on_bumper_hit)
+			bumper.mouse_entered.connect(_on_bumper_mouse_entered.bind(bumper))
+			bumper.mouse_exited.connect(_on_bumper_mouse_exited.bind(bumper))
+	_setup_bumper_tooltip()
 	_setup_ball_hp_bar()
 	_setup_reward_panel()
 	_update_enemy_hp_label()
@@ -242,6 +249,33 @@ func _ready() -> void:
 	victory_label.visible = false
 	game_over_label.visible = false
 	_reset_battle()
+
+func _setup_bumper_tooltip() -> void:
+	bumper_tooltip_panel.visible = false
+	bumper_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bumper_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+func _on_bumper_mouse_entered(bumper: Bumper) -> void:
+	_hovered_bumper = bumper
+	bumper_tooltip_label.text = bumper.get_tooltip_text()
+	bumper_tooltip_panel.visible = true
+	_update_bumper_tooltip_position()
+
+func _on_bumper_mouse_exited(_bumper: Bumper) -> void:
+	_hovered_bumper = null
+	bumper_tooltip_panel.visible = false
+
+func _update_bumper_tooltip_position() -> void:
+	var viewport_rect: Rect2 = get_viewport_rect()
+	var tooltip_size: Vector2 = bumper_tooltip_panel.size
+	var target_position: Vector2 = get_viewport().get_mouse_position() + BUMPER_TOOLTIP_OFFSET
+	if target_position.x + tooltip_size.x > viewport_rect.size.x:
+		target_position.x = viewport_rect.size.x - tooltip_size.x
+	if target_position.y + tooltip_size.y > viewport_rect.size.y:
+		target_position.y = viewport_rect.size.y - tooltip_size.y
+	target_position.x = max(target_position.x, 0.0)
+	target_position.y = max(target_position.y, 0.0)
+	bumper_tooltip_panel.position = target_position
 
 func _setup_ball_hp_bar() -> void:
 	ball_hp_bar.min_value = 0
@@ -788,6 +822,10 @@ func _reset_battle() -> void:
 			bumper.add_to_group(BUMPER_GROUP)
 			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
 			bumper.hit.connect(_on_bumper_hit)
+			bumper.mouse_entered.connect(_on_bumper_mouse_entered.bind(bumper))
+			bumper.mouse_exited.connect(_on_bumper_mouse_exited.bind(bumper))
+	_hovered_bumper = null
+	bumper_tooltip_panel.visible = false
 	for enemy: Enemy in enemies:
 		if is_instance_valid(enemy):
 			enemy.current_hp = enemy.max_hp
@@ -810,6 +848,9 @@ func _reset_battle() -> void:
 	reset_ball()
 
 func _process(delta: float) -> void:
+	if _hovered_bumper != null:
+		_update_bumper_tooltip_position()
+		bumper_tooltip_label.text = _hovered_bumper.get_tooltip_text()
 	for index: int in range(bullets_root.get_child_count() - 1, -1, -1):
 		var bullet_node: Node = bullets_root.get_child(index)
 		if not (bullet_node is Area2D):
