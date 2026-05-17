@@ -1,7 +1,8 @@
 extends Node2D
 
 const BALL_START_POSITION: Vector2 = Vector2(200.0, 120.0)
-const BALL_MAX_SPEED: float = 1350.0
+const BALL_MAX_SPEED: float = 1200.0
+const SLOPE_WALL_MIN_THICKNESS: float = 22.0
 const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
@@ -144,8 +145,10 @@ var wall_configs: Array[Dictionary] = [
 	{
 		"name": "LeftFlipperGuideWall",
 		"position": Vector2(118.0, 454.0),
-		"size": Vector2(240.0, 16.0),
+		"size": Vector2(240.0, 18.0),
 		"rotation": 0.9,
+		"is_slope": true,
+		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
@@ -153,8 +156,10 @@ var wall_configs: Array[Dictionary] = [
 	{
 		"name": "RightFlipperGuideWall",
 		"position": Vector2(282.0, 454.0),
-		"size": Vector2(240.0, 16.0),
+		"size": Vector2(240.0, 18.0),
 		"rotation": -0.9,
+		"is_slope": true,
+		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
@@ -226,6 +231,7 @@ var _hovered_bumper: Bumper = null
 
 func _ready() -> void:
 	_spawn_flippers()
+	ball.continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
 	_spawn_walls()
@@ -324,6 +330,15 @@ func _spawn_bumpers() -> void:
 func _get_bumper_visual_color(bumper_type: String) -> Color:
 	return BUMPER_VISUAL_COLOR_BY_TYPE.get(bumper_type, BUMPER_VISUAL_COLOR)
 
+
+func _get_wall_size(config: Dictionary) -> Vector2:
+	var size: Vector2 = config.get("size", Vector2(20.0, 20.0))
+	if bool(config.get("is_slope", false)):
+		var min_thickness: float = float(config.get("min_thickness", SLOPE_WALL_MIN_THICKNESS))
+		if size.y < min_thickness:
+			size.y = min_thickness
+	return size
+
 func _spawn_walls() -> void:
 	for child: Node in walls_root.get_children():
 		child.queue_free()
@@ -338,7 +353,7 @@ func _spawn_walls() -> void:
 		physics_material.friction = float(config.get("friction", 1.0))
 		wall.physics_material_override = physics_material
 
-		var size: Vector2 = config.get("size", Vector2(20.0, 20.0))
+		var size: Vector2 = _get_wall_size(config)
 		var collision_shape: CollisionShape2D = CollisionShape2D.new()
 		collision_shape.name = "CollisionShape2D"
 		var rectangle_shape: RectangleShape2D = RectangleShape2D.new()
