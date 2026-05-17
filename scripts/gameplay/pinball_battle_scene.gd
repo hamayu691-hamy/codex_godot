@@ -3,7 +3,7 @@ extends Node2D
 const BALL_START_POSITION: Vector2 = Vector2(200.0, 120.0)
 const BALL_MAX_SPEED: float = 1150.0
 const BALL_FLIPPER_POST_HIT_MAX_SPEED: float = BALL_MAX_SPEED
-const SLOPE_WALL_MIN_THICKNESS: float = 24.0
+const SLOPE_WALL_MIN_THICKNESS: float = 25.0
 const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
