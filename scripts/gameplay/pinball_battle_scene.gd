@@ -1,6 +1,11 @@
 extends Node2D
 
-const BALL_START_POSITION: Vector2 = Vector2(200.0, 120.0)
+const FIELD_WIDTH: float = 1200.0
+const FIELD_HEIGHT: float = 700.0
+const VIEW_WIDTH: float = 800.0
+const VIEW_HEIGHT: float = 700.0
+const FIELD_CENTER_X: float = FIELD_WIDTH * 0.5
+const BALL_START_POSITION: Vector2 = Vector2(FIELD_CENTER_X, 120.0)
 const BALL_MAX_SPEED: float = 1150.0
 const BALL_FLIPPER_POST_HIT_MAX_SPEED: float = BALL_MAX_SPEED
 const SLOPE_WALL_MIN_THICKNESS: float = 25.0
@@ -72,42 +77,43 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var enemies_root: Node2D = $Enemies
 @onready var walls_root: Node2D = $Walls
 @onready var bullets_root: Node2D = $Bullets
+@onready var game_camera: Camera2D = $GameCamera
 @onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
-@onready var enemy_hp_label: Label = $EnemyHpLabel
-@onready var combo_label: Label = $ComboLabel
-@onready var bonus_damage_label: Label = $BonusDamageLabel
-@onready var victory_label: Label = $VictoryLabel
-@onready var game_over_label: Label = $GameOverLabel
-@onready var reward_panel: Panel = $RewardPanel
-@onready var reward_header_label: Label = $RewardPanel/RewardHeaderLabel
-@onready var reward_status_label: Label = $RewardPanel/RewardStatusLabel
-@onready var bumper_tooltip_panel: PanelContainer = $BumperTooltipPanel
-@onready var bumper_tooltip_label: Label = $BumperTooltipPanel/BumperTooltipLabel
+@onready var enemy_hp_label: Label = $UI/EnemyHpLabel
+@onready var combo_label: Label = $UI/ComboLabel
+@onready var bonus_damage_label: Label = $UI/BonusDamageLabel
+@onready var victory_label: Label = $UI/VictoryLabel
+@onready var game_over_label: Label = $UI/GameOverLabel
+@onready var reward_panel: Panel = $UI/RewardPanel
+@onready var reward_header_label: Label = $UI/RewardPanel/RewardHeaderLabel
+@onready var reward_status_label: Label = $UI/RewardPanel/RewardStatusLabel
+@onready var bumper_tooltip_panel: PanelContainer = $UI/BumperTooltipPanel
+@onready var bumper_tooltip_label: Label = $UI/BumperTooltipPanel/BumperTooltipLabel
 @onready var reward_option_buttons: Array[Button] = [
-	$RewardPanel/RewardButtons/BumperDamageButton,
-	$RewardPanel/RewardButtons/MaxHpButton,
-	$RewardPanel/RewardButtons/FlipperPowerButton,
+	$UI/RewardPanel/RewardButtons/BumperDamageButton,
+	$UI/RewardPanel/RewardButtons/MaxHpButton,
+	$UI/RewardPanel/RewardButtons/FlipperPowerButton,
 ]
 @onready var bumpers: Array[Bumper] = []
 @onready var enemies: Array[Enemy] = []
 
 var bumper_configs: Array[Dictionary] = [
 	{
-		"position": Vector2(130.0, 210.0),
+		"position": Vector2(280.0, 280.0),
 		"level": 1,
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "normal",
 	},
 	{
-		"position": Vector2(200.0, 165.0),
+		"position": Vector2(600.0, 240.0),
 		"level": 1,
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "power",
 	},
 	{
-		"position": Vector2(270.0, 210.0),
+		"position": Vector2(920.0, 285.0),
 		"level": 1,
 		"damage": 1,
 		"impulse_strength": 130.0,
@@ -118,8 +124,8 @@ var bumper_configs: Array[Dictionary] = [
 var wall_configs: Array[Dictionary] = [
 	{
 		"name": "LeftWall",
-		"position": Vector2(20.0, 300.0),
-		"size": Vector2(20.0, 700.0),
+		"position": Vector2(20.0, FIELD_HEIGHT * 0.5),
+		"size": Vector2(20.0, FIELD_HEIGHT),
 		"rotation": -0.08,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
@@ -127,8 +133,8 @@ var wall_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "RightWall",
-		"position": Vector2(380.0, 300.0),
-		"size": Vector2(20.0, 700.0),
+		"position": Vector2(FIELD_WIDTH - 20.0, FIELD_HEIGHT * 0.5),
+		"size": Vector2(20.0, FIELD_HEIGHT),
 		"rotation": 0.08,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
@@ -136,8 +142,8 @@ var wall_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "TopWall",
-		"position": Vector2(200.0, 20.0),
-		"size": Vector2(400.0, 20.0),
+		"position": Vector2(FIELD_CENTER_X, 20.0),
+		"size": Vector2(FIELD_WIDTH, 20.0),
 		"rotation": 0.0,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
@@ -145,7 +151,7 @@ var wall_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "LeftFlipperGuideWall",
-		"position": Vector2(118.0, 454.0),
+		"position": Vector2(FIELD_CENTER_X - 170.0, 500.0),
 		"size": Vector2(240.0, 18.0),
 		"rotation": 0.9,
 		"is_slope": true,
@@ -156,7 +162,7 @@ var wall_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "RightFlipperGuideWall",
-		"position": Vector2(282.0, 454.0),
+		"position": Vector2(FIELD_CENTER_X + 170.0, 500.0),
 		"size": Vector2(240.0, 18.0),
 		"rotation": -0.9,
 		"is_slope": true,
@@ -170,7 +176,7 @@ var wall_configs: Array[Dictionary] = [
 var flipper_configs: Array[Dictionary] = [
 	{
 		"name": "LeftFlipper",
-		"position": Vector2(150.0, 570.0),
+		"position": Vector2(FIELD_CENTER_X - 50.0, 590.0),
 		"collision_offset": Vector2(45.0, 0.0),
 		"visual_offset": Vector2(45.0, 0.0),
 		"size": Vector2(110.0, 16.0),
@@ -184,7 +190,7 @@ var flipper_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "RightFlipper",
-		"position": Vector2(250.0, 570.0),
+		"position": Vector2(FIELD_CENTER_X + 50.0, 590.0),
 		"collision_offset": Vector2(-45.0, 0.0),
 		"visual_offset": Vector2(-45.0, 0.0),
 		"size": Vector2(110.0, 16.0),
@@ -200,7 +206,7 @@ var flipper_configs: Array[Dictionary] = [
 
 var enemy_configs: Array[Dictionary] = [
 	{
-		"position": Vector2(200.0, 140.0),
+		"position": Vector2(FIELD_CENTER_X, 170.0),
 		"max_hp": 20,
 		"current_hp": 20,
 		"contact_damage": 1,
@@ -208,7 +214,7 @@ var enemy_configs: Array[Dictionary] = [
 		"enemy_type": "basic",
 		"score_value": 100,
 		"move_axis": "horizontal",
-		"move_range": 80.0,
+		"move_range": 260.0,
 		"attack_type": "bullet",
 		"attack_interval": 1.1,
 	},
@@ -232,6 +238,7 @@ var _hovered_bumper: Bumper = null
 
 func _ready() -> void:
 	_spawn_flippers()
+	_setup_camera()
 	ball.continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
@@ -261,6 +268,16 @@ func _setup_bumper_tooltip() -> void:
 	bumper_tooltip_panel.visible = false
 	bumper_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bumper_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+func _setup_camera() -> void:
+	game_camera.enabled = true
+	game_camera.position_smoothing_enabled = true
+	game_camera.position_smoothing_speed = 4.0
+	game_camera.limit_left = 0
+	game_camera.limit_top = 0
+	game_camera.limit_right = int(FIELD_WIDTH)
+	game_camera.limit_bottom = int(FIELD_HEIGHT)
+	game_camera.global_position = BALL_START_POSITION
 
 func _on_bumper_mouse_entered(bumper: Bumper) -> void:
 	_hovered_bumper = bumper
@@ -453,6 +470,7 @@ func _spawn_flippers() -> void:
 		})
 
 func _physics_process(delta: float) -> void:
+	_update_camera_follow(delta)
 	if DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND:
 		var is_debug_key_down: bool = Input.is_key_pressed(DEBUG_ENEMY_ZERO_HP_KEY)
 		if is_debug_key_down and not _debug_enemy_zero_hp_key_was_down:
@@ -487,6 +505,12 @@ func _physics_process(delta: float) -> void:
 
 	_update_enemy_bullets(delta)
 	_update_damage_popups(delta)
+
+func _update_camera_follow(delta: float) -> void:
+	if not is_instance_valid(ball):
+		return
+	var follow_strength: float = clamp(delta * 3.0, 0.0, 1.0)
+	game_camera.global_position = game_camera.global_position.lerp(ball.global_position, follow_strength)
 
 
 func _cap_ball_speed(max_speed: float) -> void:
@@ -749,7 +773,7 @@ func _apply_reward(reward_id: String) -> void:
 			bumper_configs[random_index] = selected_config
 		"add_heal_bumper":
 			var heal_bumper_config: Dictionary = {
-				"position": Vector2(200.0, 250.0),
+				"position": Vector2(FIELD_CENTER_X, 320.0),
 				"level": 1,
 				"damage": 1,
 				"impulse_strength": 130.0,
@@ -884,5 +908,5 @@ func _process(delta: float) -> void:
 			_damage_ball(int(bullet.get_meta("damage", BULLET_DAMAGE)))
 			bullet.queue_free()
 			continue
-		if bullet.global_position.y > 700.0 or bullet.global_position.x < -20.0 or bullet.global_position.x > 420.0:
+		if bullet.global_position.y > FIELD_HEIGHT or bullet.global_position.x < -20.0 or bullet.global_position.x > FIELD_WIDTH + 20.0:
 			bullet.queue_free()
