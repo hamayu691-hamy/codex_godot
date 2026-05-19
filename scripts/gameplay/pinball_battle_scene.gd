@@ -151,9 +151,9 @@ var wall_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "LeftFlipperGuideWall",
-		"position": Vector2(FIELD_CENTER_X - 170.0, 500.0),
-		"size": Vector2(240.0, 18.0),
-		"rotation": 0.9,
+		"position": Vector2(FIELD_CENTER_X - 270.0, 625.0),
+		"size": Vector2(520.0, 18.0),
+		"rotation": 0.42,
 		"is_slope": true,
 		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
@@ -162,9 +162,9 @@ var wall_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "RightFlipperGuideWall",
-		"position": Vector2(FIELD_CENTER_X + 170.0, 500.0),
-		"size": Vector2(240.0, 18.0),
-		"rotation": -0.9,
+		"position": Vector2(FIELD_CENTER_X + 270.0, 625.0),
+		"size": Vector2(520.0, 18.0),
+		"rotation": -0.42,
 		"is_slope": true,
 		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
 		"color": Color(0.4, 0.45, 0.55, 1.0),
@@ -176,7 +176,7 @@ var wall_configs: Array[Dictionary] = [
 var flipper_configs: Array[Dictionary] = [
 	{
 		"name": "LeftFlipper",
-		"position": Vector2(FIELD_CENTER_X - 50.0, 590.0),
+		"position": Vector2(FIELD_CENTER_X - 50.0, 640.0),
 		"collision_offset": Vector2(45.0, 0.0),
 		"visual_offset": Vector2(45.0, 0.0),
 		"size": Vector2(110.0, 16.0),
@@ -190,7 +190,7 @@ var flipper_configs: Array[Dictionary] = [
 	},
 	{
 		"name": "RightFlipper",
-		"position": Vector2(FIELD_CENTER_X + 50.0, 590.0),
+		"position": Vector2(FIELD_CENTER_X + 50.0, 640.0),
 		"collision_offset": Vector2(-45.0, 0.0),
 		"visual_offset": Vector2(-45.0, 0.0),
 		"size": Vector2(110.0, 16.0),
