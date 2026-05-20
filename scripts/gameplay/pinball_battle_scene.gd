@@ -55,6 +55,7 @@ const BALL_HP_BAR_SIZE: Vector2 = Vector2(44.0, 7.0)
 const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
 const ENEMY_COLLISION_RADIUS: float = 20.0
 const ENEMY_VISUAL_COLOR: Color = Color(0.9, 0.3, 0.35, 1.0)
+const DEFAULT_SPRITE_SCALE: Vector2 = Vector2.ONE
 const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 	Vector2(0.0, -18.0),
 	Vector2(9.0, -15.5885),
@@ -104,6 +105,8 @@ var bumper_configs: Array[Dictionary] = [
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "normal",
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 	{
 		"position": Vector2(600.0, 240.0),
@@ -111,6 +114,8 @@ var bumper_configs: Array[Dictionary] = [
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "power",
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 	{
 		"position": Vector2(920.0, 285.0),
@@ -118,6 +123,8 @@ var bumper_configs: Array[Dictionary] = [
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "slow",
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 ]
 
@@ -130,6 +137,8 @@ var wall_configs: Array[Dictionary] = [
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 	{
 		"name": "RightWall",
@@ -139,6 +148,8 @@ var wall_configs: Array[Dictionary] = [
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 	{
 		"name": "TopWall",
@@ -148,6 +159,8 @@ var wall_configs: Array[Dictionary] = [
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 	{
 		"name": "LeftFlipperGuideWall",
@@ -159,6 +172,8 @@ var wall_configs: Array[Dictionary] = [
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 	{
 		"name": "RightFlipperGuideWall",
@@ -170,6 +185,8 @@ var wall_configs: Array[Dictionary] = [
 		"color": Color(0.4, 0.45, 0.55, 1.0),
 		"bounce": 0.75,
 		"friction": 0.05,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 ]
 
@@ -217,8 +234,15 @@ var enemy_configs: Array[Dictionary] = [
 		"move_range": 260.0,
 		"attack_type": "bullet",
 		"attack_interval": 1.1,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 ]
+
+var ball_config: Dictionary = {
+	"sprite_path": "",
+	"sprite_scale": Vector2.ONE,
+}
 
 var _flippers: Array[Dictionary] = []
 var _ball_hp: int = BALL_HP_INITIAL
@@ -237,6 +261,7 @@ var _bullet_fire_elapsed: float = 0.0
 var _hovered_bumper: Bumper = null
 
 func _ready() -> void:
+	_setup_ball_visual()
 	_spawn_flippers()
 	_setup_camera()
 	ball.continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
@@ -263,6 +288,12 @@ func _ready() -> void:
 	victory_label.visible = false
 	game_over_label.visible = false
 	_reset_battle()
+
+func _setup_ball_visual() -> void:
+	var ball_visual: Node = ball.get_node_or_null("BallVisual")
+	if ball_visual == null:
+		return
+	_try_attach_sprite(ball, ball_config, ball_visual, "BallSprite")
 
 func _setup_bumper_tooltip() -> void:
 	bumper_tooltip_panel.visible = false
@@ -334,6 +365,7 @@ func _spawn_bumpers() -> void:
 		bumper_visual.color = _get_bumper_visual_color(bumper.bumper_type)
 		bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		bumper.add_child(bumper_visual)
+		_try_attach_sprite(bumper, config, bumper_visual, "BumperSprite")
 
 		var level_label: Label = Label.new()
 		level_label.name = "LevelLabel"
@@ -389,6 +421,7 @@ func _spawn_walls() -> void:
 			Vector2(-size.x / 2.0, size.y / 2.0),
 		])
 		wall.add_child(wall_visual)
+		_try_attach_sprite(wall, config, wall_visual, "WallSprite")
 
 		walls_root.add_child(wall)
 
@@ -423,6 +456,7 @@ func _spawn_enemies() -> void:
 		enemy_visual.color = ENEMY_VISUAL_COLOR
 		enemy_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		enemy.add_child(enemy_visual)
+		_try_attach_sprite(enemy, config, enemy_visual, "EnemySprite")
 
 		enemy.body_entered.connect(_on_enemy_body_entered.bind(enemy))
 		enemy.hit.connect(_on_enemy_hit)
@@ -430,6 +464,33 @@ func _spawn_enemies() -> void:
 
 		enemies_root.add_child(enemy)
 		enemies.append(enemy)
+
+func _try_attach_sprite(parent_node: Node2D, config: Dictionary, fallback_visual: CanvasItem, sprite_name: String) -> void:
+	var sprite_path: String = str(config.get("sprite_path", ""))
+	if sprite_path.is_empty():
+		fallback_visual.visible = true
+		return
+	var texture: Texture2D = load(sprite_path) as Texture2D
+	if texture == null:
+		fallback_visual.visible = true
+		return
+	var sprite: Sprite2D = Sprite2D.new()
+	sprite.name = sprite_name
+	sprite.texture = texture
+	sprite.centered = true
+	sprite.position = Vector2.ZERO
+	sprite.scale = _get_sprite_scale(config)
+	parent_node.add_child(sprite)
+	fallback_visual.visible = false
+
+func _get_sprite_scale(config: Dictionary) -> Vector2:
+	var scale_value: Variant = config.get("sprite_scale", DEFAULT_SPRITE_SCALE)
+	if scale_value is Vector2:
+		return scale_value
+	if scale_value is float:
+		var uniform_scale: float = scale_value
+		return Vector2(uniform_scale, uniform_scale)
+	return DEFAULT_SPRITE_SCALE
 
 func _spawn_flippers() -> void:
 	for child: Node in flippers_root.get_children():
