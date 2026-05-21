@@ -1,44 +1,39 @@
-[gd_scene load_steps=8 format=3 uid="uid://dqq6k00rvb77v"]
+[gd_scene load_steps=5 format=3 uid="uid://dqq6k00rvb77v"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/gameplay/bumper.gd" id="2"]
+[ext_resource type="Script" uid="uid://hgixufw5vj5i" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
+
+[sub_resource type="PhysicsMaterial" id="6"]
+friction = 0.05
+bounce = 0.75
 
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(24, 24)
 
-[sub_resource type="RectangleShape2D" id="4"]
-size = Vector2(110, 16)
-
 [sub_resource type="RectangleShape2D" id="5"]
 size = Vector2(160, 20)
-
-[sub_resource type="PhysicsMaterial" id="6"]
-bounce = 0.75
-friction = 0.05
 
 [node name="PinballBattleScene" type="Node2D"]
 script = ExtResource("1")
 
 [node name="GameCamera" type="Camera2D" parent="."]
 position = Vector2(600, 350)
-enabled = true
-position_smoothing_enabled = true
-position_smoothing_speed = 4.0
 limit_left = 0
 limit_top = 0
 limit_right = 1200
 limit_bottom = 700
+position_smoothing_enabled = true
+position_smoothing_speed = 4.0
 
 [node name="Ball" type="RigidBody2D" parent="."]
 position = Vector2(600, 120)
 mass = 0.4
-gravity_scale = 0.8
-linear_damp = 0.15
-angular_damp = 0.2
 physics_material_override = SubResource("6")
+gravity_scale = 0.8
+freeze = true
 contact_monitor = true
 max_contacts_reported = 8
-freeze = true
+linear_damp = 0.15
+angular_damp = 0.2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Ball"]
 shape = SubResource("1")
@@ -47,14 +42,13 @@ shape = SubResource("1")
 color = Color(0.98, 0.88, 0.2, 1)
 polygon = PackedVector2Array(0, -12, 8, -9, 12, 0, 8, 9, 0, 12, -8, 9, -12, 0, -8, -9)
 
-
 [node name="BallHpBar" type="ProgressBar" parent="Ball"]
 offset_left = -22.0
 offset_top = -26.0
 offset_right = 22.0
 offset_bottom = -19.0
-show_percentage = false
 value = 20.0
+show_percentage = false
 
 [node name="Flippers" type="Node2D" parent="."]
 
@@ -131,6 +125,7 @@ offset_right = 358.0
 offset_bottom = 540.0
 
 [node name="RewardHeaderLabel" type="Label" parent="UI/RewardPanel"]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 12.0
 offset_right = 304.0
@@ -139,6 +134,7 @@ theme_override_font_sizes/font_size = 18
 text = "報酬を1つ選んでください"
 
 [node name="RewardButtons" type="VBoxContainer" parent="UI/RewardPanel"]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 48.0
 offset_right = 304.0
@@ -147,23 +143,26 @@ theme_override_constants/separation = 8
 
 [node name="BumperDamageButton" type="Button" parent="UI/RewardPanel/RewardButtons"]
 custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
 text = "バンパーダメージ +1"
 
 [node name="MaxHpButton" type="Button" parent="UI/RewardPanel/RewardButtons"]
 custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
 text = "最大HP +5"
 
 [node name="FlipperPowerButton" type="Button" parent="UI/RewardPanel/RewardButtons"]
 custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
 text = "フリッパー打ち返し力 +10%"
 
 [node name="RewardStatusLabel" type="Label" parent="UI/RewardPanel"]
+layout_mode = 0
 offset_left = 12.0
 offset_top = 176.0
 offset_right = 304.0
 offset_bottom = 202.0
 theme_override_font_sizes/font_size = 14
-text = ""
 
 [node name="BumperTooltipPanel" type="PanelContainer" parent="UI"]
 visible = false
@@ -175,6 +174,6 @@ mouse_filter = 2
 
 [node name="BumperTooltipLabel" type="Label" parent="UI/BumperTooltipPanel"]
 custom_minimum_size = Vector2(240, 116)
+layout_mode = 2
 theme_override_font_sizes/font_size = 14
 autowrap_mode = 3
-text = ""
