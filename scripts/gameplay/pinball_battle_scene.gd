@@ -56,6 +56,13 @@ const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
 const ENEMY_COLLISION_RADIUS: float = 20.0
 const ENEMY_VISUAL_COLOR: Color = Color(0.9, 0.3, 0.35, 1.0)
 const DEFAULT_SPRITE_SCALE: Vector2 = Vector2.ONE
+const LARGE_TEXTURE_BASE_SIZE: float = 1254.0
+const BALL_SPRITE_TARGET_DIAMETER: float = 24.0
+const BUMPER_SPRITE_TARGET_DIAMETER: float = 36.0
+const ENEMY_SPRITE_TARGET_DIAMETER: float = 40.0
+const BALL_SPRITE_SCALE: Vector2 = Vector2.ONE * (BALL_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
+const BUMPER_SPRITE_SCALE: Vector2 = Vector2.ONE * (BUMPER_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
+const ENEMY_SPRITE_SCALE: Vector2 = Vector2.ONE * (ENEMY_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
 const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 	Vector2(0.0, -18.0),
 	Vector2(9.0, -15.5885),
@@ -105,8 +112,8 @@ var bumper_configs: Array[Dictionary] = [
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "normal",
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
+		"sprite_path": "res://gazou/banper_0.png",
+		"sprite_scale": BUMPER_SPRITE_SCALE,
 	},
 	{
 		"position": Vector2(600.0, 240.0),
@@ -114,8 +121,8 @@ var bumper_configs: Array[Dictionary] = [
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "power",
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
+		"sprite_path": "res://gazou/banper_0.png",
+		"sprite_scale": BUMPER_SPRITE_SCALE,
 	},
 	{
 		"position": Vector2(920.0, 285.0),
@@ -123,8 +130,8 @@ var bumper_configs: Array[Dictionary] = [
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "slow",
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
+		"sprite_path": "res://gazou/banper_0.png",
+		"sprite_scale": BUMPER_SPRITE_SCALE,
 	},
 ]
 
@@ -234,14 +241,14 @@ var enemy_configs: Array[Dictionary] = [
 		"move_range": 260.0,
 		"attack_type": "bullet",
 		"attack_interval": 1.1,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
+		"sprite_path": "res://gazou/enemy_0.png",
+		"sprite_scale": ENEMY_SPRITE_SCALE,
 	},
 ]
 
 var ball_config: Dictionary = {
-	"sprite_path": "",
-	"sprite_scale": Vector2.ONE,
+	"sprite_path": "res://gazou/ball_0.png",
+	"sprite_scale": BALL_SPRITE_SCALE,
 }
 
 var _flippers: Array[Dictionary] = []
