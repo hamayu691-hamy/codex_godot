@@ -266,6 +266,7 @@ var combo_count: int = 0
 var _next_enemy_hit_bonus_damage: int = 0
 var _bullet_fire_elapsed: float = 0.0
 var _hovered_bumper: Bumper = null
+var _ball_collision_radius: float = BALL_SPRITE_TARGET_DIAMETER * 0.5
 
 func _ready() -> void:
 	_setup_ball_visual()
@@ -301,6 +302,29 @@ func _setup_ball_visual() -> void:
 	if ball_visual == null:
 		return
 	_try_attach_sprite(ball, ball_config, ball_visual, "BallSprite")
+	_sync_ball_size_with_visual()
+
+func _sync_ball_size_with_visual() -> void:
+	var ball_sprite: Sprite2D = ball.get_node_or_null("BallSprite") as Sprite2D
+	if ball_sprite == null or ball_sprite.texture == null:
+		_ball_collision_radius = BALL_SPRITE_TARGET_DIAMETER * 0.5
+	else:
+		var texture_size: Vector2 = ball_sprite.texture.get_size()
+		var applied_scale: Vector2 = ball_sprite.scale
+		var scaled_size: Vector2 = Vector2(texture_size.x * absf(applied_scale.x), texture_size.y * absf(applied_scale.y))
+		var diameter: float = max(scaled_size.x, scaled_size.y)
+		_ball_collision_radius = max(diameter * 0.5, 1.0)
+	_update_ball_collision_shape()
+
+func _update_ball_collision_shape() -> void:
+	var collision_shape: CollisionShape2D = ball.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape == null:
+		return
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
+	if circle_shape == null:
+		circle_shape = CircleShape2D.new()
+		collision_shape.shape = circle_shape
+	circle_shape.radius = _ball_collision_radius
 
 func _setup_bumper_tooltip() -> void:
 	bumper_tooltip_panel.visible = false
@@ -972,7 +996,7 @@ func _process(delta: float) -> void:
 		var bullet: Area2D = bullet_node
 		var velocity: Vector2 = bullet.get_meta("velocity", Vector2.ZERO)
 		bullet.global_position += velocity * delta
-		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (12.0 + BULLET_COLLISION_RADIUS):
+		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (_ball_collision_radius + BULLET_COLLISION_RADIUS):
 			_damage_ball(int(bullet.get_meta("damage", BULLET_DAMAGE)))
 			bullet.queue_free()
 			continue
