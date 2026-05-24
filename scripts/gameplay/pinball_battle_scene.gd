@@ -266,6 +266,7 @@ var combo_count: int = 0
 var _next_enemy_hit_bonus_damage: int = 0
 var _bullet_fire_elapsed: float = 0.0
 var _hovered_bumper: Bumper = null
+var _ball_collision_radius: float = BALL_SPRITE_TARGET_DIAMETER * 0.5
 
 func _ready() -> void:
 	_setup_ball_visual()
@@ -301,6 +302,29 @@ func _setup_ball_visual() -> void:
 	if ball_visual == null:
 		return
 	_try_attach_sprite(ball, ball_config, ball_visual, "BallSprite")
+	_sync_ball_size_with_visual()
+
+func _sync_ball_size_with_visual() -> void:
+	var ball_sprite: Sprite2D = ball.get_node_or_null("BallSprite") as Sprite2D
+	if ball_sprite == null or ball_sprite.texture == null:
+		_ball_collision_radius = BALL_SPRITE_TARGET_DIAMETER * 0.5
+	else:
+		var texture_size: Vector2 = ball_sprite.texture.get_size()
+		var applied_scale: Vector2 = ball_sprite.scale
+		var scaled_size: Vector2 = Vector2(texture_size.x * absf(applied_scale.x), texture_size.y * absf(applied_scale.y))
+		var diameter: float = max(scaled_size.x, scaled_size.y)
+		_ball_collision_radius = max(diameter * 0.5, 1.0)
+	_update_ball_collision_shape()
+
+func _update_ball_collision_shape() -> void:
+	var collision_shape: CollisionShape2D = ball.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape == null:
+		return
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
+	if circle_shape == null:
+		circle_shape = CircleShape2D.new()
+		collision_shape.shape = circle_shape
+	circle_shape.radius = _ball_collision_radius
 
 func _setup_bumper_tooltip() -> void:
 	bumper_tooltip_panel.visible = false
@@ -373,6 +397,7 @@ func _spawn_bumpers() -> void:
 		bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		bumper.add_child(bumper_visual)
 		_try_attach_sprite(bumper, config, bumper_visual, "BumperSprite")
+		_sync_bumper_size_with_visual(bumper)
 
 		var level_label: Label = Label.new()
 		level_label.name = "LevelLabel"
@@ -383,6 +408,27 @@ func _spawn_bumpers() -> void:
 		bumper.add_child(level_label)
 
 		bumpers_root.add_child(bumper)
+
+func _sync_bumper_size_with_visual(bumper: Bumper) -> void:
+	var collision_radius: float = BUMPER_COLLISION_RADIUS
+	var bumper_sprite: Sprite2D = bumper.get_node_or_null("BumperSprite") as Sprite2D
+	if bumper_sprite != null and bumper_sprite.texture != null:
+		var texture_size: Vector2 = bumper_sprite.texture.get_size()
+		var applied_scale: Vector2 = bumper_sprite.scale
+		var scaled_size: Vector2 = Vector2(texture_size.x * absf(applied_scale.x), texture_size.y * absf(applied_scale.y))
+		var diameter: float = max(scaled_size.x, scaled_size.y)
+		collision_radius = max(diameter * 0.5, 1.0)
+	_update_bumper_collision_shape(bumper, collision_radius)
+
+func _update_bumper_collision_shape(bumper: Bumper, collision_radius: float) -> void:
+	var collision_shape: CollisionShape2D = bumper.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape == null:
+		return
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
+	if circle_shape == null:
+		circle_shape = CircleShape2D.new()
+		collision_shape.shape = circle_shape
+	circle_shape.radius = collision_radius
 
 func _get_bumper_visual_color(bumper_type: String) -> Color:
 	return BUMPER_VISUAL_COLOR_BY_TYPE.get(bumper_type, BUMPER_VISUAL_COLOR)
@@ -464,6 +510,7 @@ func _spawn_enemies() -> void:
 		enemy_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		enemy.add_child(enemy_visual)
 		_try_attach_sprite(enemy, config, enemy_visual, "EnemySprite")
+		_sync_enemy_size_with_visual(enemy)
 
 		enemy.body_entered.connect(_on_enemy_body_entered.bind(enemy))
 		enemy.hit.connect(_on_enemy_hit)
@@ -471,6 +518,27 @@ func _spawn_enemies() -> void:
 
 		enemies_root.add_child(enemy)
 		enemies.append(enemy)
+
+func _sync_enemy_size_with_visual(enemy: Enemy) -> void:
+	var collision_radius: float = ENEMY_COLLISION_RADIUS
+	var enemy_sprite: Sprite2D = enemy.get_node_or_null("EnemySprite") as Sprite2D
+	if enemy_sprite != null and enemy_sprite.texture != null:
+		var texture_size: Vector2 = enemy_sprite.texture.get_size()
+		var applied_scale: Vector2 = enemy_sprite.scale
+		var scaled_size: Vector2 = Vector2(texture_size.x * absf(applied_scale.x), texture_size.y * absf(applied_scale.y))
+		var diameter: float = max(scaled_size.x, scaled_size.y)
+		collision_radius = max(diameter * 0.5, 1.0)
+	_update_enemy_collision_shape(enemy, collision_radius)
+
+func _update_enemy_collision_shape(enemy: Enemy, collision_radius: float) -> void:
+	var collision_shape: CollisionShape2D = enemy.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape == null:
+		return
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
+	if circle_shape == null:
+		circle_shape = CircleShape2D.new()
+		collision_shape.shape = circle_shape
+	circle_shape.radius = collision_radius
 
 func _try_attach_sprite(parent_node: Node2D, config: Dictionary, fallback_visual: CanvasItem, sprite_name: String) -> void:
 	var sprite_path: String = str(config.get("sprite_path", ""))
@@ -972,7 +1040,7 @@ func _process(delta: float) -> void:
 		var bullet: Area2D = bullet_node
 		var velocity: Vector2 = bullet.get_meta("velocity", Vector2.ZERO)
 		bullet.global_position += velocity * delta
-		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (12.0 + BULLET_COLLISION_RADIUS):
+		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (_ball_collision_radius + BULLET_COLLISION_RADIUS):
 			_damage_ball(int(bullet.get_meta("damage", BULLET_DAMAGE)))
 			bullet.queue_free()
 			continue
