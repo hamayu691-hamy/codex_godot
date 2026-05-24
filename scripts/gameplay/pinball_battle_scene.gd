@@ -820,7 +820,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _find_replaceable_pin_at_position(screen_position: Vector2) -> Pin:
-	var world_position: Vector2 = game_camera.get_screen_to_world(screen_position)
+	var world_position: Vector2 = get_viewport().get_canvas_transform().affine_inverse() * screen_position
 	for pin_node: Node in pins_root.get_children():
 		if not pin_node is Pin:
 			continue
