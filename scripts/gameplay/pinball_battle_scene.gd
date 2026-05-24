@@ -61,6 +61,7 @@ const LARGE_TEXTURE_BASE_SIZE: float = 1254.0
 const BALL_SPRITE_TARGET_DIAMETER: float = 24.0
 const BUMPER_SPRITE_TARGET_DIAMETER: float = 36.0
 const ENEMY_SPRITE_TARGET_DIAMETER: float = 40.0
+const PIN_COLLISION_RADIUS: float = 12.0
 const BALL_SPRITE_SCALE: Vector2 = Vector2.ONE * (BALL_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
 const BUMPER_SPRITE_SCALE: Vector2 = Vector2.ONE * (BUMPER_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
 const ENEMY_SPRITE_SCALE: Vector2 = Vector2.ONE * (ENEMY_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
@@ -83,6 +84,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var flippers_root: Node2D = $Flippers
 @onready var drain: Area2D = $Drain
 @onready var bumpers_root: Node = $Bumpers
+@onready var pins_root: Node2D = $Pins
 @onready var enemies_root: Node2D = $Enemies
 @onready var walls_root: Node2D = $Walls
 @onready var bullets_root: Node2D = $Bullets
@@ -133,6 +135,60 @@ var bumper_configs: Array[Dictionary] = [
 		"bumper_type": "slow",
 		"sprite_path": "res://gazou/banper_0.png",
 		"sprite_scale": BUMPER_SPRITE_SCALE,
+	},
+]
+
+
+var pin_configs: Array[Dictionary] = [
+	{
+		"position": Vector2(360.0, 205.0),
+		"pin_id": "pin_01",
+		"slot_id": "slot_01",
+		"replaceable": true,
+		"occupied": false,
+		"impulse_strength": 85.0,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
+	},
+	{
+		"position": Vector2(600.0, 185.0),
+		"pin_id": "pin_02",
+		"slot_id": "slot_02",
+		"replaceable": true,
+		"occupied": false,
+		"impulse_strength": 85.0,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
+	},
+	{
+		"position": Vector2(840.0, 205.0),
+		"pin_id": "pin_03",
+		"slot_id": "slot_03",
+		"replaceable": true,
+		"occupied": false,
+		"impulse_strength": 85.0,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
+	},
+	{
+		"position": Vector2(480.0, 325.0),
+		"pin_id": "pin_04",
+		"slot_id": "slot_04",
+		"replaceable": true,
+		"occupied": false,
+		"impulse_strength": 90.0,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
+	},
+	{
+		"position": Vector2(720.0, 325.0),
+		"pin_id": "pin_05",
+		"slot_id": "slot_05",
+		"replaceable": true,
+		"occupied": false,
+		"impulse_strength": 90.0,
+		"sprite_path": "",
+		"sprite_scale": Vector2.ONE,
 	},
 ]
 
@@ -277,6 +333,7 @@ func _ready() -> void:
 	drain.body_entered.connect(_on_drain_body_entered)
 	ball.body_entered.connect(_on_ball_body_entered)
 	_spawn_walls()
+	_spawn_pins()
 	_spawn_bumpers()
 	_spawn_enemies()
 	for bumper_node: Node in bumpers_root.get_children():
@@ -371,6 +428,60 @@ func _setup_ball_hp_bar() -> void:
 	ball_hp_bar.show_percentage = false
 	ball_hp_bar.position = BALL_HP_BAR_OFFSET
 	ball_hp_bar.size = BALL_HP_BAR_SIZE
+
+
+func _spawn_pins() -> void:
+	for child: Node in pins_root.get_children():
+		child.queue_free()
+	for index: int in range(pin_configs.size()):
+		var config: Dictionary = pin_configs[index]
+		var pin: Pin = Pin.new()
+		pin.name = "Pin%d" % (index + 1)
+		pin.position = config.get("position", Vector2.ZERO)
+		pin.pin_id = str(config.get("pin_id", ""))
+		pin.slot_id = str(config.get("slot_id", ""))
+		pin.replaceable = bool(config.get("replaceable", true))
+		pin.occupied = bool(config.get("occupied", false))
+		pin.impulse_strength = float(config.get("impulse_strength", 80.0))
+		pin.sprite_path = str(config.get("sprite_path", ""))
+		pin.sprite_scale = config.get("sprite_scale", Vector2.ONE)
+
+		var collision_shape: CollisionShape2D = CollisionShape2D.new()
+		var circle_shape: CircleShape2D = CircleShape2D.new()
+		circle_shape.radius = PIN_COLLISION_RADIUS
+		collision_shape.shape = circle_shape
+		pin.add_child(collision_shape)
+
+		var pin_visual: Polygon2D = Polygon2D.new()
+		pin_visual.name = "PinVisual"
+		pin_visual.color = Pin.DEFAULT_VISUAL_COLOR
+		pin_visual.polygon = PackedVector2Array(Pin.DEFAULT_VISUAL_POINTS)
+		pin.add_child(pin_visual)
+		_try_attach_sprite(pin, config, pin_visual, "PinSprite")
+		_sync_pin_size_with_visual(pin)
+
+		pins_root.add_child(pin)
+
+func _sync_pin_size_with_visual(pin: Pin) -> void:
+	var collision_radius: float = PIN_COLLISION_RADIUS
+	var pin_sprite: Sprite2D = pin.get_node_or_null("PinSprite") as Sprite2D
+	if pin_sprite != null and pin_sprite.texture != null:
+		var texture_size: Vector2 = pin_sprite.texture.get_size()
+		var applied_scale: Vector2 = pin_sprite.scale
+		var scaled_size: Vector2 = Vector2(texture_size.x * absf(applied_scale.x), texture_size.y * absf(applied_scale.y))
+		var diameter: float = max(scaled_size.x, scaled_size.y)
+		collision_radius = max(diameter * 0.5, 1.0)
+	_update_pin_collision_shape(pin, collision_radius)
+
+func _update_pin_collision_shape(pin: Pin, collision_radius: float) -> void:
+	var collision_shape: CollisionShape2D = pin.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape == null:
+		return
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
+	if circle_shape == null:
+		circle_shape = CircleShape2D.new()
+		collision_shape.shape = circle_shape
+	circle_shape.radius = collision_radius
 
 func _spawn_bumpers() -> void:
 	for child: Node in bumpers_root.get_children():
