@@ -397,6 +397,7 @@ func _spawn_bumpers() -> void:
 		bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
 		bumper.add_child(bumper_visual)
 		_try_attach_sprite(bumper, config, bumper_visual, "BumperSprite")
+		_sync_bumper_size_with_visual(bumper)
 
 		var level_label: Label = Label.new()
 		level_label.name = "LevelLabel"
@@ -407,6 +408,27 @@ func _spawn_bumpers() -> void:
 		bumper.add_child(level_label)
 
 		bumpers_root.add_child(bumper)
+
+func _sync_bumper_size_with_visual(bumper: Bumper) -> void:
+	var collision_radius: float = BUMPER_COLLISION_RADIUS
+	var bumper_sprite: Sprite2D = bumper.get_node_or_null("BumperSprite") as Sprite2D
+	if bumper_sprite != null and bumper_sprite.texture != null:
+		var texture_size: Vector2 = bumper_sprite.texture.get_size()
+		var applied_scale: Vector2 = bumper_sprite.scale
+		var scaled_size: Vector2 = Vector2(texture_size.x * absf(applied_scale.x), texture_size.y * absf(applied_scale.y))
+		var diameter: float = max(scaled_size.x, scaled_size.y)
+		collision_radius = max(diameter * 0.5, 1.0)
+	_update_bumper_collision_shape(bumper, collision_radius)
+
+func _update_bumper_collision_shape(bumper: Bumper, collision_radius: float) -> void:
+	var collision_shape: CollisionShape2D = bumper.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape == null:
+		return
+	var circle_shape: CircleShape2D = collision_shape.shape as CircleShape2D
+	if circle_shape == null:
+		circle_shape = CircleShape2D.new()
+		collision_shape.shape = circle_shape
+	circle_shape.radius = collision_radius
 
 func _get_bumper_visual_color(bumper_type: String) -> Color:
 	return BUMPER_VISUAL_COLOR_BY_TYPE.get(bumper_type, BUMPER_VISUAL_COLOR)
