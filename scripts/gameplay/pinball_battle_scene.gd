@@ -54,6 +54,7 @@ const BUMPER_TOOLTIP_OFFSET: Vector2 = Vector2(16.0, 16.0)
 const BALL_HP_BAR_SIZE: Vector2 = Vector2(44.0, 7.0)
 const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
 const ENEMY_COLLISION_RADIUS: float = 20.0
+const ENEMY_HIT_KNOCKBACK_STRENGTH: float = 120.0
 const ENEMY_VISUAL_COLOR: Color = Color(0.9, 0.3, 0.35, 1.0)
 const DEFAULT_SPRITE_SCALE: Vector2 = Vector2.ONE
 const LARGE_TEXTURE_BASE_SIZE: float = 1254.0
@@ -771,6 +772,12 @@ func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 		return
 	var combo_damage_bonus: int = int(floor(float(combo_count) / 3.0))
 	var total_damage: int = 1 + combo_damage_bonus + _next_enemy_hit_bonus_damage
+	var knockback_direction: Vector2 = (enemy.global_position - ball.global_position)
+	if knockback_direction == Vector2.ZERO:
+		knockback_direction = ball.linear_velocity
+	if knockback_direction == Vector2.ZERO:
+		knockback_direction = Vector2.UP
+	enemy.apply_knockback(knockback_direction, ENEMY_HIT_KNOCKBACK_STRENGTH)
 	enemy.take_damage(total_damage)
 	_next_enemy_hit_bonus_damage = 0
 	_update_bonus_damage_label()
