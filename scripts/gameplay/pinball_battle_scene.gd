@@ -757,6 +757,8 @@ func replace_pin_with_bumper(slot_id: String, bumper_config: Dictionary) -> bool
 
 		var config: Dictionary = bumper_config.duplicate(true)
 		config["position"] = pin.position
+		config["slot_id"] = slot_id
+		bumper_configs.append(config.duplicate(true))
 		var bumper: Bumper = _create_bumper_from_config(config, "BumperSlot_%s" % slot_id)
 		bumpers_root.add_child(bumper)
 		_register_bumper(bumper)
