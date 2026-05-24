@@ -314,6 +314,7 @@ var _ball_hp: int = BALL_HP_INITIAL
 var _is_victory: bool = false
 var _is_game_over: bool = false
 var _debug_enemy_zero_hp_key_was_down: bool = false
+var _debug_replace_pin_key_was_down: bool = false
 var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
 var _reward_selected_this_victory: bool = false
@@ -798,8 +799,10 @@ func _physics_process(delta: float) -> void:
 		_reset_battle()
 		return
 
-	if Input.is_key_just_pressed(DEBUG_REPLACE_PIN_WITH_POWER_BUMPER_KEY):
+	var is_replace_debug_key_down: bool = Input.is_key_pressed(DEBUG_REPLACE_PIN_WITH_POWER_BUMPER_KEY)
+	if is_replace_debug_key_down and not _debug_replace_pin_key_was_down:
 		_debug_replace_first_pin_with_power_bumper()
+	_debug_replace_pin_key_was_down = is_replace_debug_key_down
 
 	for index: int in range(_flippers.size()):
 		var state: Dictionary = _flippers[index]
