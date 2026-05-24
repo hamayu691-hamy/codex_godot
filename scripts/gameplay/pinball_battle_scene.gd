@@ -24,6 +24,7 @@ const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
 const DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND: bool = true
 const DEBUG_ENEMY_ZERO_HP_KEY: Key = KEY_K
+const DEBUG_REPLACE_PIN_WITH_POWER_BUMPER_KEY: Key = KEY_B
 const BALL_HP_INITIAL: int = 20
 const BUMPER_GROUP: StringName = &"bumpers"
 const BUMPER_COLLISION_RADIUS: float = 18.0
@@ -336,15 +337,6 @@ func _ready() -> void:
 	_spawn_pins()
 	_spawn_bumpers()
 	_spawn_enemies()
-	for bumper_node: Node in bumpers_root.get_children():
-		if bumper_node is Bumper:
-			var bumper: Bumper = bumper_node
-			bumpers.append(bumper)
-			bumper.add_to_group(BUMPER_GROUP)
-			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
-			bumper.hit.connect(_on_bumper_hit)
-			bumper.mouse_entered.connect(_on_bumper_mouse_entered.bind(bumper))
-			bumper.mouse_exited.connect(_on_bumper_mouse_exited.bind(bumper))
 	_setup_bumper_tooltip()
 	_setup_ball_hp_bar()
 	_setup_reward_panel()
@@ -489,37 +481,53 @@ func _spawn_bumpers() -> void:
 	bumpers.clear()
 	for index: int in range(bumper_configs.size()):
 		var config: Dictionary = bumper_configs[index]
-		var bumper: Bumper = Bumper.new()
-		bumper.name = "Bumper%d" % (index + 1)
-		bumper.position = config.get("position", Vector2.ZERO)
-		bumper.base_damage = int(config.get("damage", 1))
-		bumper.base_impulse_strength = float(config.get("impulse_strength", 130.0))
-		bumper.bumper_type = str(config.get("bumper_type", "normal"))
-		bumper.level = int(config.get("level", 1))
-
-		var collision_shape: CollisionShape2D = CollisionShape2D.new()
-		var circle_shape: CircleShape2D = CircleShape2D.new()
-		circle_shape.radius = BUMPER_COLLISION_RADIUS
-		collision_shape.shape = circle_shape
-		bumper.add_child(collision_shape)
-
-		var bumper_visual: Polygon2D = Polygon2D.new()
-		bumper_visual.name = "BumperVisual"
-		bumper_visual.color = _get_bumper_visual_color(bumper.bumper_type)
-		bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
-		bumper.add_child(bumper_visual)
-		_try_attach_sprite(bumper, config, bumper_visual, "BumperSprite")
-		_sync_bumper_size_with_visual(bumper)
-
-		var level_label: Label = Label.new()
-		level_label.name = "LevelLabel"
-		level_label.position = Vector2(10.0, 10.0)
-		level_label.add_theme_font_size_override("font_size", 12)
-		level_label.modulate = Color(1.0, 1.0, 1.0, 0.95)
-		level_label.text = "Lv.1"
-		bumper.add_child(level_label)
-
+		var bumper: Bumper = _create_bumper_from_config(config, "Bumper%d" % (index + 1))
 		bumpers_root.add_child(bumper)
+		_register_bumper(bumper)
+
+
+func _create_bumper_from_config(config: Dictionary, bumper_name: String) -> Bumper:
+	var bumper: Bumper = Bumper.new()
+	bumper.name = bumper_name
+	bumper.position = config.get("position", Vector2.ZERO)
+	bumper.base_damage = int(config.get("damage", 1))
+	bumper.base_impulse_strength = float(config.get("impulse_strength", 130.0))
+	bumper.bumper_type = str(config.get("bumper_type", "normal"))
+	bumper.level = int(config.get("level", 1))
+
+	var collision_shape: CollisionShape2D = CollisionShape2D.new()
+	var circle_shape: CircleShape2D = CircleShape2D.new()
+	circle_shape.radius = BUMPER_COLLISION_RADIUS
+	collision_shape.shape = circle_shape
+	bumper.add_child(collision_shape)
+
+	var bumper_visual: Polygon2D = Polygon2D.new()
+	bumper_visual.name = "BumperVisual"
+	bumper_visual.color = _get_bumper_visual_color(bumper.bumper_type)
+	bumper_visual.polygon = PackedVector2Array(BUMPER_VISUAL_POINTS)
+	bumper.add_child(bumper_visual)
+	_try_attach_sprite(bumper, config, bumper_visual, "BumperSprite")
+	_sync_bumper_size_with_visual(bumper)
+
+	var level_label: Label = Label.new()
+	level_label.name = "LevelLabel"
+	level_label.position = Vector2(10.0, 10.0)
+	level_label.add_theme_font_size_override("font_size", 12)
+	level_label.modulate = Color(1.0, 1.0, 1.0, 0.95)
+	level_label.text = "Lv.1"
+	bumper.add_child(level_label)
+
+	return bumper
+
+
+func _register_bumper(bumper: Bumper) -> void:
+	bumpers.append(bumper)
+	bumper.add_to_group(BUMPER_GROUP)
+	bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
+	bumper.hit.connect(_on_bumper_hit)
+	bumper.mouse_entered.connect(_on_bumper_mouse_entered.bind(bumper))
+	bumper.mouse_exited.connect(_on_bumper_mouse_exited.bind(bumper))
+
 
 func _sync_bumper_size_with_visual(bumper: Bumper) -> void:
 	var collision_radius: float = BUMPER_COLLISION_RADIUS
@@ -717,6 +725,67 @@ func _spawn_flippers() -> void:
 			"angular_speed": 0.0,
 		})
 
+
+func get_replaceable_pin_slots() -> Array[Dictionary]:
+	var slots: Array[Dictionary] = []
+	for pin_node: Node in pins_root.get_children():
+		if not pin_node is Pin:
+			continue
+		var pin: Pin = pin_node
+		if not pin.replaceable or pin.occupied:
+			continue
+		slots.append({
+			"slot_id": pin.slot_id,
+			"pin_id": pin.pin_id,
+			"position": pin.position,
+		})
+	return slots
+
+
+func replace_pin_with_bumper(slot_id: String, bumper_config: Dictionary) -> bool:
+	for pin_node: Node in pins_root.get_children():
+		if not pin_node is Pin:
+			continue
+		var pin: Pin = pin_node
+		if pin.slot_id != slot_id:
+			continue
+		if not pin.replaceable or pin.occupied:
+			return false
+
+		var config: Dictionary = bumper_config.duplicate(true)
+		config["position"] = pin.position
+		var bumper: Bumper = _create_bumper_from_config(config, "BumperSlot_%s" % slot_id)
+		bumpers_root.add_child(bumper)
+		_register_bumper(bumper)
+
+		pin.occupied = true
+		for index: int in range(pin_configs.size()):
+			if str(pin_configs[index].get("slot_id", "")) == slot_id:
+				pin_configs[index]["occupied"] = true
+				break
+
+		pin.queue_free()
+		return true
+	return false
+
+
+func _debug_replace_first_pin_with_power_bumper() -> void:
+	var slots: Array[Dictionary] = get_replaceable_pin_slots()
+	if slots.is_empty():
+		return
+	var target_slot_id: String = str(slots[0].get("slot_id", ""))
+	if target_slot_id.is_empty():
+		return
+	var power_bumper_config: Dictionary = {
+		"level": 1,
+		"damage": 2,
+		"impulse_strength": 150.0,
+		"bumper_type": "power",
+		"sprite_path": "res://gazou/banper_1.png",
+		"sprite_scale": BUMPER_SPRITE_SCALE,
+	}
+	replace_pin_with_bumper(target_slot_id, power_bumper_config)
+
 func _physics_process(delta: float) -> void:
 	_update_camera_follow(delta)
 	if DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND:
@@ -728,6 +797,9 @@ func _physics_process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_R):
 		_reset_battle()
 		return
+
+	if Input.is_key_just_pressed(DEBUG_REPLACE_PIN_WITH_POWER_BUMPER_KEY):
+		_debug_replace_first_pin_with_power_bumper()
 
 	for index: int in range(_flippers.size()):
 		var state: Dictionary = _flippers[index]
@@ -1114,16 +1186,6 @@ func _reset_battle() -> void:
 	_is_game_over = false
 	_is_ball_alive = true
 	_spawn_bumpers()
-	bumpers.clear()
-	for bumper_node: Node in bumpers_root.get_children():
-		if bumper_node is Bumper:
-			var bumper: Bumper = bumper_node
-			bumpers.append(bumper)
-			bumper.add_to_group(BUMPER_GROUP)
-			bumper.body_entered.connect(_on_bumper_body_entered.bind(bumper))
-			bumper.hit.connect(_on_bumper_hit)
-			bumper.mouse_entered.connect(_on_bumper_mouse_entered.bind(bumper))
-			bumper.mouse_exited.connect(_on_bumper_mouse_exited.bind(bumper))
 	_hovered_bumper = null
 	bumper_tooltip_panel.visible = false
 	for enemy: Enemy in enemies:
