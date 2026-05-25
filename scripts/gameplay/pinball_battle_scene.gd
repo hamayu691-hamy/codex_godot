@@ -1,14 +1,14 @@
 extends Node2D
 
-const FIELD_WIDTH: float = 1200.0
-const FIELD_HEIGHT: float = 700.0
-const VIEW_WIDTH: float = 800.0
-const VIEW_HEIGHT: float = 700.0
+const StageConfig = preload("res://scripts/gameplay/stage_config.gd")
+const FIELD_WIDTH: float = StageConfig.FIELD_WIDTH
+const FIELD_HEIGHT: float = StageConfig.FIELD_HEIGHT
+const VIEW_WIDTH: float = StageConfig.VIEW_WIDTH
+const VIEW_HEIGHT: float = StageConfig.VIEW_HEIGHT
 const FIELD_CENTER_X: float = FIELD_WIDTH * 0.5
 const BALL_START_POSITION: Vector2 = Vector2(FIELD_CENTER_X, 120.0)
 const BALL_MAX_SPEED: float = 1150.0
 const BALL_FLIPPER_POST_HIT_MAX_SPEED: float = BALL_MAX_SPEED
-const SLOPE_WALL_MIN_THICKNESS: float = 25.0
 const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
@@ -109,205 +109,12 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var bumpers: Array[Bumper] = []
 @onready var enemies: Array[Enemy] = []
 
-var bumper_configs: Array[Dictionary] = [
-	{
-		"position": Vector2(280.0, 280.0),
-		"level": 1,
-		"damage": 1,
-		"impulse_strength": 130.0,
-		"bumper_type": "normal",
-		"sprite_path": "res://gazou/banper_0.png",
-		"sprite_scale": BUMPER_SPRITE_SCALE,
-	},
-	{
-		"position": Vector2(600.0, 240.0),
-		"level": 1,
-		"damage": 1,
-		"impulse_strength": 130.0,
-		"bumper_type": "power",
-		"sprite_path": "res://gazou/banper_0.png",
-		"sprite_scale": BUMPER_SPRITE_SCALE,
-	},
-	{
-		"position": Vector2(920.0, 285.0),
-		"level": 1,
-		"damage": 1,
-		"impulse_strength": 130.0,
-		"bumper_type": "slow",
-		"sprite_path": "res://gazou/banper_0.png",
-		"sprite_scale": BUMPER_SPRITE_SCALE,
-	},
-]
-
-
-var pin_configs: Array[Dictionary] = [
-	{
-		"position": Vector2(360.0, 205.0),
-		"pin_id": "pin_01",
-		"slot_id": "slot_01",
-		"replaceable": true,
-		"occupied": false,
-		"impulse_strength": 85.0,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"position": Vector2(600.0, 185.0),
-		"pin_id": "pin_02",
-		"slot_id": "slot_02",
-		"replaceable": true,
-		"occupied": false,
-		"impulse_strength": 85.0,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"position": Vector2(840.0, 205.0),
-		"pin_id": "pin_03",
-		"slot_id": "slot_03",
-		"replaceable": true,
-		"occupied": false,
-		"impulse_strength": 85.0,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"position": Vector2(480.0, 325.0),
-		"pin_id": "pin_04",
-		"slot_id": "slot_04",
-		"replaceable": true,
-		"occupied": false,
-		"impulse_strength": 90.0,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"position": Vector2(720.0, 325.0),
-		"pin_id": "pin_05",
-		"slot_id": "slot_05",
-		"replaceable": true,
-		"occupied": false,
-		"impulse_strength": 90.0,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-]
-
-var wall_configs: Array[Dictionary] = [
-	{
-		"name": "LeftWall",
-		"position": Vector2(20.0, FIELD_HEIGHT * 0.5),
-		"size": Vector2(20.0, FIELD_HEIGHT),
-		"rotation": -0.08,
-		"color": Color(0.4, 0.45, 0.55, 1.0),
-		"bounce": 0.75,
-		"friction": 0.05,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"name": "RightWall",
-		"position": Vector2(FIELD_WIDTH - 20.0, FIELD_HEIGHT * 0.5),
-		"size": Vector2(20.0, FIELD_HEIGHT),
-		"rotation": 0.08,
-		"color": Color(0.4, 0.45, 0.55, 1.0),
-		"bounce": 0.75,
-		"friction": 0.05,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"name": "TopWall",
-		"position": Vector2(FIELD_CENTER_X, 20.0),
-		"size": Vector2(FIELD_WIDTH, 20.0),
-		"rotation": 0.0,
-		"color": Color(0.4, 0.45, 0.55, 1.0),
-		"bounce": 0.75,
-		"friction": 0.05,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"name": "LeftFlipperGuideWall",
-		"position": Vector2(FIELD_CENTER_X - 270.0, 625.0),
-		"size": Vector2(520.0, 18.0),
-		"rotation": 0.42,
-		"is_slope": true,
-		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
-		"color": Color(0.4, 0.45, 0.55, 1.0),
-		"bounce": 0.75,
-		"friction": 0.05,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-	{
-		"name": "RightFlipperGuideWall",
-		"position": Vector2(FIELD_CENTER_X + 270.0, 625.0),
-		"size": Vector2(520.0, 18.0),
-		"rotation": -0.42,
-		"is_slope": true,
-		"min_thickness": SLOPE_WALL_MIN_THICKNESS,
-		"color": Color(0.4, 0.45, 0.55, 1.0),
-		"bounce": 0.75,
-		"friction": 0.05,
-		"sprite_path": "",
-		"sprite_scale": Vector2.ONE,
-	},
-]
-
-var flipper_configs: Array[Dictionary] = [
-	{
-		"name": "LeftFlipper",
-		"position": Vector2(FIELD_CENTER_X - 50.0, 640.0),
-		"collision_offset": Vector2(45.0, 0.0),
-		"visual_offset": Vector2(45.0, 0.0),
-		"size": Vector2(110.0, 16.0),
-		"rest_rotation": -0.35,
-		"active_rotation": -1.0,
-		"rotate_speed": 14.0,
-		"input_key": KEY_LEFT,
-		"side": -1.0,
-		"hit_impulse": 1600.0,
-		"color": Color(0.95, 0.5, 0.35, 1.0),
-	},
-	{
-		"name": "RightFlipper",
-		"position": Vector2(FIELD_CENTER_X + 50.0, 640.0),
-		"collision_offset": Vector2(-45.0, 0.0),
-		"visual_offset": Vector2(-45.0, 0.0),
-		"size": Vector2(110.0, 16.0),
-		"rest_rotation": 0.35,
-		"active_rotation": 1.0,
-		"rotate_speed": 14.0,
-		"input_key": KEY_RIGHT,
-		"side": 1.0,
-		"hit_impulse": 1600.0,
-		"color": Color(0.95, 0.5, 0.35, 1.0),
-	},
-]
-
-var enemy_configs: Array[Dictionary] = [
-	{
-		"position": Vector2(FIELD_CENTER_X, 170.0),
-		"max_hp": 20,
-		"current_hp": 20,
-		"contact_damage": 1,
-		"move_speed": 35.0,
-		"enemy_type": "basic",
-		"score_value": 100,
-		"move_axis": "horizontal",
-		"move_range": 260.0,
-		"attack_type": "bullet",
-		"attack_interval": 1.1,
-		"sprite_path": "res://gazou/enemy_0.png",
-		"sprite_scale": ENEMY_SPRITE_SCALE,
-	},
-]
-
-var ball_config: Dictionary = {
-	"sprite_path": "res://gazou/ball_0.png",
-	"sprite_scale": BALL_SPRITE_SCALE,
-}
+var wall_configs: Array[Dictionary] = []
+var bumper_configs: Array[Dictionary] = []
+var pin_configs: Array[Dictionary] = []
+var flipper_configs: Array[Dictionary] = []
+var enemy_configs: Array[Dictionary] = []
+var ball_config: Dictionary = {}
 
 var _flippers: Array[Dictionary] = []
 var _ball_hp: int = BALL_HP_INITIAL
@@ -330,6 +137,7 @@ var _hovered_bumper: Bumper = null
 var _ball_collision_radius: float = BALL_SPRITE_TARGET_DIAMETER * 0.5
 
 func _ready() -> void:
+	_load_stage_config("stage_01")
 	_setup_ball_visual()
 	_spawn_flippers()
 	_setup_camera()
@@ -349,6 +157,15 @@ func _ready() -> void:
 	victory_label.visible = false
 	game_over_label.visible = false
 	_reset_battle()
+
+func _load_stage_config(stage_id: String) -> void:
+	var stage_data: Dictionary = StageConfig.get_stage_data(stage_id)
+	wall_configs = stage_data.get("wall_configs", [])
+	bumper_configs = stage_data.get("bumper_configs", [])
+	pin_configs = stage_data.get("pin_configs", [])
+	flipper_configs = stage_data.get("flipper_configs", [])
+	enemy_configs = stage_data.get("enemy_configs", [])
+	ball_config = stage_data.get("ball_config", {})
 
 func _setup_ball_visual() -> void:
 	var ball_visual: Node = ball.get_node_or_null("BallVisual")
