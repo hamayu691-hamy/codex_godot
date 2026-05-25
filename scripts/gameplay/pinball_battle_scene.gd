@@ -377,7 +377,7 @@ func _get_bumper_visual_color(bumper_type: String) -> Color:
 func _get_wall_size(config: Dictionary) -> Vector2:
 	var size: Vector2 = config.get("size", Vector2(20.0, 20.0))
 	if bool(config.get("is_slope", false)):
-		var min_thickness: float = float(config.get("min_thickness", SLOPE_WALL_MIN_THICKNESS))
+		var min_thickness: float = float(config.get("min_thickness", StageConfig.SLOPE_WALL_MIN_THICKNESS))
 		if size.y < min_thickness:
 			size.y = min_thickness
 	return size
