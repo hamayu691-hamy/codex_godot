@@ -160,12 +160,20 @@ func _ready() -> void:
 
 func _load_stage_config(stage_id: String) -> void:
 	var stage_data: Dictionary = StageConfig.get_stage_data(stage_id)
-	wall_configs = stage_data.get("wall_configs", [])
-	bumper_configs = stage_data.get("bumper_configs", [])
-	pin_configs = stage_data.get("pin_configs", [])
-	flipper_configs = stage_data.get("flipper_configs", [])
-	enemy_configs = stage_data.get("enemy_configs", [])
+	wall_configs = _to_dictionary_array(stage_data.get("wall_configs", []))
+	bumper_configs = _to_dictionary_array(stage_data.get("bumper_configs", []))
+	pin_configs = _to_dictionary_array(stage_data.get("pin_configs", []))
+	flipper_configs = _to_dictionary_array(stage_data.get("flipper_configs", []))
+	enemy_configs = _to_dictionary_array(stage_data.get("enemy_configs", []))
 	ball_config = stage_data.get("ball_config", {})
+
+func _to_dictionary_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if value is Array:
+		for entry: Variant in value:
+			if entry is Dictionary:
+				result.append(entry)
+	return result
 
 func _setup_ball_visual() -> void:
 	var ball_visual: Node = ball.get_node_or_null("BallVisual")
