@@ -2,6 +2,7 @@ extends Node2D
 
 const StageConfig = preload("res://scripts/gameplay/stage_config.gd")
 const FieldBuilder = preload("res://scripts/gameplay/field_builder.gd")
+const RewardManager = preload("res://scripts/gameplay/reward_manager.gd")
 const FIELD_WIDTH: float = StageConfig.FIELD_WIDTH
 const FIELD_HEIGHT: float = StageConfig.FIELD_HEIGHT
 const VIEW_WIDTH: float = StageConfig.VIEW_WIDTH
@@ -14,12 +15,6 @@ const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
 const DAMAGE_POPUP_RISE: float = 24.0
-const REWARD_OPTION_IDS: Array[String] = [
-	"normal_to_power",
-	"random_bumper_damage",
-	"add_heal_bumper",
-	"enhance_slow",
-]
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
@@ -127,7 +122,7 @@ var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
 var _reward_selected_this_victory: bool = false
 var _current_reward_options: Array[String] = []
-var _reward_levels: Dictionary = {}
+var _reward_manager: RewardManager = RewardManager.new()
 var _pending_reward_bumper_config: Dictionary = {}
 var _is_waiting_for_pin_replacement_selection: bool = false
 var _slow_effect_multiplier: float = 1.0
@@ -730,13 +725,11 @@ func _show_reward_panel() -> void:
 	_pending_reward_bumper_config = {}
 	reward_panel.visible = true
 	reward_status_label.text = ""
-	_current_reward_options = REWARD_OPTION_IDS.duplicate()
-	_current_reward_options.shuffle()
-	_current_reward_options = _current_reward_options.slice(0, reward_option_buttons.size())
+	_current_reward_options = _reward_manager.get_random_reward_options(reward_option_buttons.size())
 	for index: int in range(reward_option_buttons.size()):
 		var button: Button = reward_option_buttons[index]
 		button.disabled = false
-		button.text = _get_reward_label(_current_reward_options[index])
+		button.text = _reward_manager.get_reward_label(_current_reward_options[index], Bumper.MAX_LEVEL)
 
 func _on_reward_button_pressed(button_index: int) -> void:
 	if _reward_selected_this_victory:
@@ -746,8 +739,8 @@ func _on_reward_button_pressed(button_index: int) -> void:
 	_reward_selected_this_victory = true
 	var reward_id: String = _current_reward_options[button_index]
 	var requires_pin_selection: bool = _apply_reward(reward_id)
-	_increment_reward_level(reward_id)
-	reward_status_label.text = _get_reward_result_text(reward_id)
+	_reward_manager.increment_reward_level(reward_id)
+	reward_status_label.text = _reward_manager.get_reward_result_text(reward_id, Bumper.MAX_LEVEL)
 	for button: Button in reward_option_buttons:
 		button.disabled = true
 	if requires_pin_selection:
@@ -756,71 +749,49 @@ func _on_reward_button_pressed(button_index: int) -> void:
 	reward_header_label.text = "次ステージ（仮）へ進みます"
 	_start_next_battle_placeholder()
 
-func _get_reward_label(reward_id: String) -> String:
-	var current_level: int = _get_reward_level(reward_id)
-	match reward_id:
-		"normal_to_power":
-			return "normalをpowerに変化 (Lv.%d)" % current_level
-		"random_bumper_damage":
-			return "ランダムなバンパー Lv+1 (最大Lv.%d) (Lv.%d)" % [Bumper.MAX_LEVEL, current_level]
-		"add_heal_bumper":
-			return "healバンパーを1つ追加 (Lv.%d)" % current_level
-		"enhance_slow":
-			return "slowバンパー効果を強化 (Lv.%d)" % current_level
-		_:
-			return "不明な報酬"
-
-func _get_reward_level(reward_id: String) -> int:
-	return int(_reward_levels.get(reward_id, 0)) + 1
-
-func _increment_reward_level(reward_id: String) -> void:
-	_reward_levels[reward_id] = int(_reward_levels.get(reward_id, 0)) + 1
-
-func _get_reward_result_text(reward_id: String) -> String:
-	match reward_id:
-		"normal_to_power":
-			return "normalバンパーをpowerに変化しました"
-		"random_bumper_damage":
-			return "ランダムなバンパーのLvが1上がりました（最大Lv.%d）" % Bumper.MAX_LEVEL
-		"add_heal_bumper":
-			return "healバンパーを獲得しました。配置先のピンを選択してください"
-		"enhance_slow":
-			return "slowバンパー効果を強化しました"
-		_:
-			return "報酬を獲得しました"
-
 func _apply_reward(reward_id: String) -> bool:
 	match reward_id:
 		"normal_to_power":
-			for config: Dictionary in bumper_configs:
-				if str(config.get("bumper_type", "normal")) == "normal":
-					config["bumper_type"] = "power"
-					return false
-			return false
+			return _apply_normal_to_power_reward()
 		"random_bumper_damage":
-			if bumper_configs.is_empty():
-				return false
-			var random_index: int = randi() % bumper_configs.size()
-			var selected_config: Dictionary = bumper_configs[random_index]
-			var current_level: int = int(selected_config.get("level", 1))
-			selected_config["level"] = mini(current_level + 1, Bumper.MAX_LEVEL)
-			bumper_configs[random_index] = selected_config
-			return false
+			return _apply_random_bumper_damage_reward()
 		"add_heal_bumper":
-			var heal_bumper_config: Dictionary = {
-				"level": 1,
-				"damage": 1,
-				"impulse_strength": 130.0,
-				"bumper_type": "heal",
-				"sprite_path": "res://gazou/banper_2.png",
-				"sprite_scale": BUMPER_SPRITE_SCALE,
-			}
-			_pending_reward_bumper_config = heal_bumper_config
-			_is_waiting_for_pin_replacement_selection = true
-			return true
+			return _apply_add_heal_bumper_reward()
 		"enhance_slow":
-			_slow_effect_multiplier += 0.25
-			return false
+			return _apply_enhance_slow_reward()
+	return false
+
+func _apply_normal_to_power_reward() -> bool:
+	for config: Dictionary in bumper_configs:
+		if str(config.get("bumper_type", "normal")) == "normal":
+			config["bumper_type"] = "power"
+			break
+	return false
+
+func _apply_random_bumper_damage_reward() -> bool:
+	if bumper_configs.is_empty():
+		return false
+	var random_index: int = randi() % bumper_configs.size()
+	var selected_config: Dictionary = bumper_configs[random_index]
+	var current_level: int = int(selected_config.get("level", 1))
+	selected_config["level"] = mini(current_level + 1, Bumper.MAX_LEVEL)
+	bumper_configs[random_index] = selected_config
+	return false
+
+func _apply_add_heal_bumper_reward() -> bool:
+	_pending_reward_bumper_config = {
+		"level": 1,
+		"damage": 1,
+		"impulse_strength": 130.0,
+		"bumper_type": "heal",
+		"sprite_path": "res://gazou/banper_2.png",
+		"sprite_scale": BUMPER_SPRITE_SCALE,
+	}
+	_is_waiting_for_pin_replacement_selection = true
+	return true
+
+func _apply_enhance_slow_reward() -> bool:
+	_slow_effect_multiplier += 0.25
 	return false
 
 func _start_next_battle_placeholder() -> void:
