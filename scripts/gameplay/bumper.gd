@@ -3,7 +3,7 @@ extends Area2D
 
 signal hit(bumper: Bumper, bumper_type: String, damage: int)
 
-const HIT_SCALE: Vector2 = Vector2(1.15, 1.15)
+const HIT_SCALE: Vector2 = Vector2(1.28, 1.28)
 const HIT_FLASH_COLOR_BY_TYPE: Dictionary = {
 	"normal": Color(0.75, 1.0, 1.0, 1.0),
 	"power": Color(1.0, 0.65, 0.5, 1.0),
@@ -69,6 +69,7 @@ var _scale_tween: Tween = null
 var _flash_tween: Tween = null
 
 @onready var _bumper_visual: CanvasItem = get_node_or_null("BumperVisual")
+@onready var _bumper_sprite: CanvasItem = get_node_or_null("BumperSprite")
 @onready var _level_label: Label = get_node_or_null("LevelLabel")
 
 
@@ -235,16 +236,22 @@ func _play_hit_feedback() -> void:
 	if _flash_tween != null and _flash_tween.is_running():
 		_flash_tween.kill()
 
-	if _bumper_visual != null:
-		var base_modulate: Color = _bumper_visual.modulate
+	var feedback_target: CanvasItem = _get_feedback_visual_target()
+	if feedback_target != null:
+		var base_modulate: Color = feedback_target.modulate
 		var flash_color: Color = _get_hit_flash_color()
 		_flash_tween = create_tween()
-		_flash_tween.tween_property(_bumper_visual, "modulate", flash_color, 0.05)
-		_flash_tween.tween_property(_bumper_visual, "modulate", base_modulate, 0.1)
+		_flash_tween.tween_property(feedback_target, "modulate", flash_color, 0.06)
+		_flash_tween.tween_property(feedback_target, "modulate", base_modulate, 0.12)
 
 	_scale_tween = create_tween()
-	_scale_tween.tween_property(self, "scale", HIT_SCALE, 0.06)
-	_scale_tween.tween_property(self, "scale", Vector2.ONE, 0.1)
+	_scale_tween.tween_property(self, "scale", HIT_SCALE, 0.07)
+	_scale_tween.tween_property(self, "scale", Vector2.ONE, 0.12)
+
+func _get_feedback_visual_target() -> CanvasItem:
+	if _bumper_sprite != null and _bumper_sprite.visible:
+		return _bumper_sprite
+	return _bumper_visual
 
 func _get_hit_flash_color() -> Color:
 	if HIT_FLASH_COLOR_BY_TYPE.has(bumper_type):
