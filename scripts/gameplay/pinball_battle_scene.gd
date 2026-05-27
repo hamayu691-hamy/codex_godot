@@ -15,6 +15,15 @@ const BALL_MIN_SPEED: float = 170.0
 const BALL_LAUNCH_IMPULSE: Vector2 = Vector2(120.0, -750.0)
 const DAMAGE_POPUP_DURATION: float = 0.55
 const DAMAGE_POPUP_RISE: float = 24.0
+const DAMAGE_POPUP_OFFSET: Vector2 = Vector2(0.0, -34.0)
+const DAMAGE_POPUP_COLOR: Color = Color(1.0, 0.85, 0.45, 1.0)
+const DAMAGE_POPUP_FONT_SIZE: int = 20
+const ENEMY_HIT_FLASH_DURATION: float = 0.11
+const ENEMY_HIT_FLASH_COLOR: Color = Color(2.6, 2.6, 2.6, 1.0)
+const HIT_EFFECT_DURATION: float = 0.2
+const HIT_EFFECT_START_RADIUS: float = 6.0
+const HIT_EFFECT_END_RADIUS: float = 20.0
+const HIT_EFFECT_COLOR: Color = Color(1.0, 0.95, 0.7, 0.9)
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
@@ -120,6 +129,7 @@ var _debug_enemy_zero_hp_key_was_down: bool = false
 var _debug_replace_pin_key_was_down: bool = false
 var _is_ball_alive: bool = true
 var _damage_popups: Array[Dictionary] = []
+var _hit_effects: Array[Dictionary] = []
 var _reward_selected_this_victory: bool = false
 var _current_reward_options: Array[String] = []
 var _reward_manager: RewardManager = RewardManager.new()
@@ -522,6 +532,7 @@ func _physics_process(delta: float) -> void:
 
 	_update_enemy_bullets(delta)
 	_update_damage_popups(delta)
+	_update_hit_effects(delta)
 
 func _update_camera_follow(delta: float) -> void:
 	if not is_instance_valid(ball):
@@ -643,7 +654,6 @@ func _on_bumper_hit(_bumper: Bumper, bumper_type: String, damage: int) -> void:
 	_apply_bumper_effect(bumper_type)
 	_update_combo_label()
 	_update_bonus_damage_label()
-	_spawn_damage_popup(damage)
 
 func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 	if _is_victory or _is_game_over:
@@ -665,24 +675,56 @@ func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 
 func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 	_update_enemy_hp_label()
-	_spawn_damage_popup(damage)
+	_spawn_damage_popup(enemy, damage)
+	_play_enemy_hit_flash(enemy)
+	_spawn_hit_effect(enemy.global_position)
 
 func _on_enemy_defeated(_enemy: Enemy) -> void:
 	_update_enemy_hp_label()
 	_enter_victory_state()
 
-func _spawn_damage_popup(damage: int) -> void:
+func _spawn_damage_popup(enemy: Enemy, damage: int) -> void:
+	if not is_instance_valid(enemy):
+		return
 	var popup_label: Label = Label.new()
 	popup_label.text = "-%d" % damage
-	popup_label.modulate = Color(1.0, 0.85, 0.45, 1.0)
-	popup_label.add_theme_font_size_override("font_size", 20)
+	popup_label.modulate = DAMAGE_POPUP_COLOR
+	popup_label.add_theme_font_size_override("font_size", DAMAGE_POPUP_FONT_SIZE)
 	popup_label.top_level = true
-	popup_label.global_position = enemy_hp_label.global_position + Vector2(145.0, 6.0)
+	popup_label.global_position = enemy.global_position + DAMAGE_POPUP_OFFSET
 	add_child(popup_label)
 	_damage_popups.append({
 		"label": popup_label,
 		"elapsed": 0.0,
 		"start_position": popup_label.global_position,
+	})
+
+func _play_enemy_hit_flash(enemy: Enemy) -> void:
+	var enemy_visual: CanvasItem = enemy.get_node_or_null("EnemySprite") as CanvasItem
+	if enemy_visual == null:
+		enemy_visual = enemy.get_node_or_null("EnemyVisual") as CanvasItem
+	if enemy_visual == null:
+		return
+	enemy_visual.modulate = ENEMY_HIT_FLASH_COLOR
+	var tween: Tween = create_tween()
+	tween.tween_property(enemy_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), ENEMY_HIT_FLASH_DURATION)
+
+func _spawn_hit_effect(world_position: Vector2) -> void:
+	var effect: Polygon2D = Polygon2D.new()
+	effect.polygon = PackedVector2Array([
+		Vector2(-1.0, -1.0),
+		Vector2(1.0, -1.0),
+		Vector2(1.0, 1.0),
+		Vector2(-1.0, 1.0),
+	])
+	effect.color = HIT_EFFECT_COLOR
+	effect.top_level = true
+	effect.global_position = world_position
+	effect.scale = Vector2.ONE * HIT_EFFECT_START_RADIUS
+	add_child(effect)
+	_hit_effects.append({
+		"node": effect,
+		"elapsed": 0.0,
 	})
 
 func _update_damage_popups(delta: float) -> void:
@@ -703,6 +745,24 @@ func _update_damage_popups(delta: float) -> void:
 		if progress >= 1.0:
 			popup_label.queue_free()
 			_damage_popups.remove_at(index)
+
+func _update_hit_effects(delta: float) -> void:
+	for index: int in range(_hit_effects.size() - 1, -1, -1):
+		var effect_data: Dictionary = _hit_effects[index]
+		var effect: Polygon2D = effect_data["node"]
+		if not is_instance_valid(effect):
+			_hit_effects.remove_at(index)
+			continue
+		var elapsed: float = float(effect_data["elapsed"]) + delta
+		effect_data["elapsed"] = elapsed
+		var progress: float = min(elapsed / HIT_EFFECT_DURATION, 1.0)
+		var radius: float = lerpf(HIT_EFFECT_START_RADIUS, HIT_EFFECT_END_RADIUS, progress)
+		effect.scale = Vector2.ONE * radius
+		effect.color.a = HIT_EFFECT_COLOR.a * (1.0 - progress)
+		_hit_effects[index] = effect_data
+		if progress >= 1.0:
+			effect.queue_free()
+			_hit_effects.remove_at(index)
 
 func _enter_victory_state() -> void:
 	_is_victory = true
@@ -894,6 +954,16 @@ func _reset_battle() -> void:
 	ball.freeze = false
 	for child: Node in bullets_root.get_children():
 		child.queue_free()
+	for popup: Dictionary in _damage_popups:
+		var popup_label: Label = popup.get("label")
+		if is_instance_valid(popup_label):
+			popup_label.queue_free()
+	_damage_popups.clear()
+	for effect_data: Dictionary in _hit_effects:
+		var effect_node: Polygon2D = effect_data.get("node")
+		if is_instance_valid(effect_node):
+			effect_node.queue_free()
+	_hit_effects.clear()
 	reset_ball()
 
 func _process(delta: float) -> void:
