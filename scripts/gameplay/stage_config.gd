@@ -10,6 +10,8 @@ const FIELD_CENTER_X: float = FIELD_WIDTH * 0.5
 
 const STAGES: Dictionary = {
 	"stage_01": {
+		"background_sprite_path": "",
+		"background_color": Color(0.08, 0.1, 0.15, 1.0),
 		"ball_config": {
 			"sprite_path": "res://gazou/ball_0.png",
 			"sprite_scale": Vector2.ONE * (24.0 / 1254.0),

@@ -57,6 +57,8 @@ const BULLET_SPEED: float = 420.0
 const BULLET_DAMAGE: int = 2
 const BULLET_COLLISION_RADIUS: float = 7.0
 const BUMPER_TOOLTIP_OFFSET: Vector2 = Vector2(16.0, 16.0)
+const BACKGROUND_Z_INDEX: int = -100
+const DEFAULT_BACKGROUND_COLOR: Color = Color(0.08, 0.1, 0.15, 1.0)
 const BALL_HP_BAR_SIZE: Vector2 = Vector2(44.0, 7.0)
 const BALL_HP_BAR_OFFSET: Vector2 = Vector2(-22.0, -26.0)
 const ENEMY_COLLISION_RADIUS: float = 20.0
@@ -86,6 +88,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 	Vector2(-9.0, -15.5885),
 ]
 
+@onready var background_root: Node2D = $Background
 @onready var ball: RigidBody2D = $Ball
 @onready var flippers_root: Node2D = $Flippers
 @onready var drain: Area2D = $Drain
@@ -120,6 +123,8 @@ var pin_configs: Array[Dictionary] = []
 var flipper_configs: Array[Dictionary] = []
 var enemy_configs: Array[Dictionary] = []
 var ball_config: Dictionary = {}
+var background_sprite_path: String = ""
+var background_color: Color = DEFAULT_BACKGROUND_COLOR
 
 var _flippers: Array[Dictionary] = []
 var _ball_hp: int = BALL_HP_INITIAL
@@ -146,6 +151,7 @@ var _field_builder: FieldBuilder
 func _ready() -> void:
 	_load_stage_config("stage_01")
 	_field_builder = FieldBuilder.new(PIN_COLLISION_RADIUS, BUMPER_COLLISION_RADIUS, ENEMY_COLLISION_RADIUS, BUMPER_VISUAL_COLOR, BUMPER_VISUAL_COLOR_BY_TYPE, BUMPER_VISUAL_POINTS, ENEMY_VISUAL_COLOR, ENEMY_HP_INITIAL)
+	_setup_background()
 	_setup_ball_visual()
 	_spawn_flippers()
 	_setup_camera()
@@ -174,6 +180,12 @@ func _load_stage_config(stage_id: String) -> void:
 	flipper_configs = _to_dictionary_array(stage_data.get("flipper_configs", []))
 	enemy_configs = _to_dictionary_array(stage_data.get("enemy_configs", []))
 	ball_config = stage_data.get("ball_config", {})
+	background_sprite_path = str(stage_data.get("background_sprite_path", ""))
+	var loaded_background_color: Variant = stage_data.get("background_color", DEFAULT_BACKGROUND_COLOR)
+	if loaded_background_color is Color:
+		background_color = loaded_background_color
+	else:
+		background_color = DEFAULT_BACKGROUND_COLOR
 
 func _to_dictionary_array(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -182,6 +194,40 @@ func _to_dictionary_array(value: Variant) -> Array[Dictionary]:
 			if entry is Dictionary:
 				result.append(entry)
 	return result
+
+
+func _setup_background() -> void:
+	for child: Node in background_root.get_children():
+		child.queue_free()
+	background_root.z_index = BACKGROUND_Z_INDEX
+	background_root.position = Vector2.ZERO
+	var texture: Texture2D = null
+	if not background_sprite_path.is_empty():
+		texture = load(background_sprite_path) as Texture2D
+	if texture == null:
+		_add_fallback_background()
+		return
+	var background_sprite: Sprite2D = Sprite2D.new()
+	background_sprite.name = "BackgroundSprite"
+	background_sprite.texture = texture
+	background_sprite.centered = true
+	background_sprite.position = Vector2(FIELD_WIDTH * 0.5, FIELD_HEIGHT * 0.5)
+	var texture_size: Vector2 = texture.get_size()
+	if texture_size.x > 0.0 and texture_size.y > 0.0:
+		background_sprite.scale = Vector2(FIELD_WIDTH / texture_size.x, FIELD_HEIGHT / texture_size.y)
+	background_root.add_child(background_sprite)
+
+func _add_fallback_background() -> void:
+	var fallback_background: Polygon2D = Polygon2D.new()
+	fallback_background.name = "FallbackBackground"
+	fallback_background.color = background_color
+	fallback_background.polygon = PackedVector2Array([
+		Vector2.ZERO,
+		Vector2(FIELD_WIDTH, 0.0),
+		Vector2(FIELD_WIDTH, FIELD_HEIGHT),
+		Vector2(0.0, FIELD_HEIGHT),
+	])
+	background_root.add_child(fallback_background)
 
 func _setup_ball_visual() -> void:
 	var ball_visual: Node = ball.get_node_or_null("BallVisual")
