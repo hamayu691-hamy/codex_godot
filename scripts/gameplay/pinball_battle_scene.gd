@@ -3,6 +3,7 @@ extends Node2D
 const StageConfig = preload("res://scripts/gameplay/stage_config.gd")
 const FieldBuilder = preload("res://scripts/gameplay/field_builder.gd")
 const RewardManager = preload("res://scripts/gameplay/reward_manager.gd")
+const AssistBall = preload("res://scripts/gameplay/assist_ball.gd")
 const FIELD_WIDTH: float = StageConfig.FIELD_WIDTH
 const FIELD_HEIGHT: float = StageConfig.FIELD_HEIGHT
 const VIEW_WIDTH: float = StageConfig.VIEW_WIDTH
@@ -52,6 +53,7 @@ const BUMPER_VISUAL_COLOR_BY_TYPE: Dictionary = {
 	"lightning": Color(0.98, 0.95, 0.45, 1.0),
 	"bomb": Color(0.35, 0.35, 0.35, 1.0),
 	"multiball": Color(0.95, 0.6, 0.9, 1.0),
+	"summon_ball": Color(0.35, 1.0, 0.85, 1.0),
 }
 const BULLET_SPEED: float = 420.0
 const BULLET_DAMAGE: int = 2
@@ -67,6 +69,16 @@ const ENEMY_VISUAL_COLOR: Color = Color(0.9, 0.3, 0.35, 1.0)
 const DEFAULT_SPRITE_SCALE: Vector2 = Vector2.ONE
 const LARGE_TEXTURE_BASE_SIZE: float = 1254.0
 const BALL_SPRITE_TARGET_DIAMETER: float = 24.0
+const ASSIST_BALL_MAX_COUNT: int = 5
+const ASSIST_BALL_HP: int = 1
+const ASSIST_BALL_ATTACK_DAMAGE: int = 1
+const ASSIST_BALL_LIFE_TIME: float = 8.0
+const ASSIST_BALL_MAX_SPEED: float = 850.0
+const ASSIST_BALL_COLLISION_RADIUS: float = 9.0
+const ASSIST_BALL_SPAWN_OFFSET: Vector2 = Vector2(0.0, -30.0)
+const ASSIST_BALL_SPAWN_IMPULSE_BASE: Vector2 = Vector2(0.0, -520.0)
+const ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X: float = 260.0
+const ASSIST_BALL_VISUAL_COLOR: Color = Color(0.45, 1.0, 0.85, 1.0)
 const BUMPER_SPRITE_TARGET_DIAMETER: float = 36.0
 const ENEMY_SPRITE_TARGET_DIAMETER: float = 40.0
 const PIN_COLLISION_RADIUS: float = 12.0
@@ -97,6 +109,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var enemies_root: Node2D = $Enemies
 @onready var walls_root: Node2D = $Walls
 @onready var bullets_root: Node2D = $Bullets
+@onready var assist_balls_root: Node2D = $AssistBalls
 @onready var game_camera: Camera2D = $GameCamera
 @onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
 @onready var enemy_hp_label: Label = $UI/EnemyHpLabel
@@ -647,6 +660,10 @@ func _on_drain_body_entered(body: Node2D) -> void:
 	if body == ball and _is_ball_alive:
 		_reset_combo_count()
 		reset_ball()
+		return
+	if body is AssistBall:
+		var assist_ball: AssistBall = body
+		assist_ball.disappear()
 
 func _on_ball_body_entered(body: Node) -> void:
 	for state: Dictionary in _flippers:
@@ -694,15 +711,20 @@ func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 		return
 	bumper.on_ball_entered(ball)
 
-func _on_bumper_hit(_bumper: Bumper, bumper_type: String, damage: int) -> void:
+func _on_bumper_hit(bumper: Bumper, bumper_type: String, _damage: int) -> void:
 	if _is_victory or _is_game_over:
 		return
 	_apply_bumper_effect(bumper_type)
+	if bumper_type == "summon_ball":
+		_spawn_assist_ball(bumper)
 	_update_combo_label()
 	_update_bonus_damage_label()
 
 func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 	if _is_victory or _is_game_over:
+		return
+	if body is AssistBall:
+		_apply_assist_ball_enemy_hit(body, enemy)
 		return
 	if body != ball:
 		return
@@ -718,6 +740,88 @@ func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 	_next_enemy_hit_bonus_damage = 0
 	_update_bonus_damage_label()
 	_reset_combo_count()
+
+func _spawn_assist_ball(bumper: Bumper) -> void:
+	if _get_active_assist_ball_count() >= ASSIST_BALL_MAX_COUNT:
+		return
+	var assist_ball: AssistBall = AssistBall.new()
+	assist_ball.name = "AssistBall"
+	assist_ball.hp = ASSIST_BALL_HP
+	assist_ball.attack_damage = ASSIST_BALL_ATTACK_DAMAGE
+	assist_ball.life_time = ASSIST_BALL_LIFE_TIME
+	assist_ball.max_speed = ASSIST_BALL_MAX_SPEED
+	assist_ball.mass = 0.22
+	assist_ball.gravity_scale = ball.gravity_scale
+	assist_ball.physics_material_override = ball.physics_material_override
+	assist_ball.linear_damp = ball.linear_damp
+	assist_ball.angular_damp = ball.angular_damp
+	assist_ball.global_position = bumper.global_position + ASSIST_BALL_SPAWN_OFFSET
+	_add_assist_ball_collision(assist_ball)
+	_add_assist_ball_visual(assist_ball)
+	assist_balls_root.add_child(assist_ball)
+	var random_x: float = randf_range(-ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X, ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X)
+	assist_ball.apply_central_impulse(ASSIST_BALL_SPAWN_IMPULSE_BASE + Vector2(random_x, 0.0))
+	_spawn_hit_effect(assist_ball.global_position)
+
+
+func _add_assist_ball_collision(assist_ball: AssistBall) -> void:
+	var collision_shape: CollisionShape2D = CollisionShape2D.new()
+	var circle_shape: CircleShape2D = CircleShape2D.new()
+	circle_shape.radius = ASSIST_BALL_COLLISION_RADIUS
+	collision_shape.shape = circle_shape
+	assist_ball.add_child(collision_shape)
+
+
+func _add_assist_ball_visual(assist_ball: AssistBall) -> void:
+	var visual: Polygon2D = Polygon2D.new()
+	visual.name = "AssistBallVisual"
+	visual.color = ASSIST_BALL_VISUAL_COLOR
+	visual.polygon = PackedVector2Array([
+		Vector2(0.0, -9.0),
+		Vector2(6.4, -6.4),
+		Vector2(9.0, 0.0),
+		Vector2(6.4, 6.4),
+		Vector2(0.0, 9.0),
+		Vector2(-6.4, 6.4),
+		Vector2(-9.0, 0.0),
+		Vector2(-6.4, -6.4),
+	])
+	assist_ball.add_child(visual)
+
+
+func _get_active_assist_ball_count() -> int:
+	var count: int = 0
+	for child: Node in assist_balls_root.get_children():
+		if child is AssistBall and not child.is_queued_for_deletion():
+			count += 1
+	return count
+
+
+func _apply_assist_ball_enemy_hit(assist_ball: AssistBall, enemy: Enemy) -> void:
+	if not is_instance_valid(enemy):
+		return
+	if assist_ball.is_queued_for_deletion():
+		return
+	enemy.take_damage(assist_ball.attack_damage)
+	assist_ball.take_damage(1)
+
+
+func _try_hit_assist_ball_with_bullet(bullet: Area2D) -> bool:
+	for child: Node in assist_balls_root.get_children():
+		if not (child is AssistBall):
+			continue
+		var assist_ball: AssistBall = child
+		if assist_ball.is_queued_for_deletion():
+			continue
+		if bullet.global_position.distance_to(assist_ball.global_position) <= (ASSIST_BALL_COLLISION_RADIUS + BULLET_COLLISION_RADIUS):
+			assist_ball.take_damage(1)
+			return true
+	return false
+
+
+func _clear_assist_balls() -> void:
+	for child: Node in assist_balls_root.get_children():
+		child.queue_free()
 
 func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 	_update_enemy_hp_label()
@@ -812,6 +916,7 @@ func _update_hit_effects(delta: float) -> void:
 
 func _enter_victory_state() -> void:
 	_is_victory = true
+	_clear_assist_balls()
 	ball.sleeping = true
 	ball.linear_velocity = Vector2.ZERO
 	ball.angular_velocity = 0.0
@@ -947,6 +1052,8 @@ func _apply_bumper_effect(bumper_type: String) -> void:
 				else:
 					new_velocity = new_velocity.normalized() * BALL_MIN_SPEED
 			ball.linear_velocity = new_velocity
+		"summon_ball":
+			combo_count += 1
 		_:
 			combo_count += 1
 
@@ -970,6 +1077,7 @@ func _destroy_ball() -> void:
 
 func _enter_game_over_state() -> void:
 	_is_game_over = true
+	_clear_assist_balls()
 	game_over_label.visible = true
 
 func _reset_battle() -> void:
@@ -1000,6 +1108,7 @@ func _reset_battle() -> void:
 	ball.freeze = false
 	for child: Node in bullets_root.get_children():
 		child.queue_free()
+	_clear_assist_balls()
 	for popup: Dictionary in _damage_popups:
 		var popup_label: Label = popup.get("label")
 		if is_instance_valid(popup_label):
@@ -1025,6 +1134,9 @@ func _process(delta: float) -> void:
 		bullet.global_position += velocity * delta
 		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (_ball_collision_radius + BULLET_COLLISION_RADIUS):
 			_damage_ball(int(bullet.get_meta("damage", BULLET_DAMAGE)))
+			bullet.queue_free()
+			continue
+		if _try_hit_assist_ball_with_bullet(bullet):
 			bullet.queue_free()
 			continue
 		if bullet.global_position.y > FIELD_HEIGHT or bullet.global_position.x < -20.0 or bullet.global_position.x > FIELD_WIDTH + 20.0:

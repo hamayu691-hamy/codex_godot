@@ -9,6 +9,7 @@ const HIT_FLASH_COLOR_BY_TYPE: Dictionary = {
 	"power": Color(1.0, 0.65, 0.5, 1.0),
 	"heal": Color(0.6, 1.0, 0.65, 1.0),
 	"slow": Color(0.6, 0.7, 1.0, 1.0),
+	"summon_ball": Color(0.55, 1.0, 0.9, 1.0),
 }
 const MAX_LEVEL: int = 5
 
@@ -30,6 +31,7 @@ const BUMPER_DISPLAY_NAMES: Dictionary = {
 	"lightning": "Lightning Bumper",
 	"bomb": "Bomb Bumper",
 	"multiball": "Multiball Bumper",
+	"summon_ball": "Summon Ball Bumper",
 }
 
 const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
@@ -50,6 +52,7 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 	"lightning": "電撃系の追加効果。",
 	"bomb": "範囲爆発系の追加効果。",
 	"multiball": "ボール増加に関わる効果。",
+	"summon_ball": "HP1/攻撃力1の補助ボールを生成。",
 }
 
 @export var base_damage: int = 1
@@ -127,6 +130,8 @@ func _apply_bumper_effect(ball: RigidBody2D) -> void:
 			_apply_bomb_bumper_effect(ball)
 		"multiball":
 			_apply_multiball_bumper_effect(ball)
+		"summon_ball":
+			_apply_summon_ball_bumper_effect(ball)
 		_:
 			_apply_normal_bumper_effect(ball)
 
@@ -182,6 +187,9 @@ func _apply_bomb_bumper_effect(_ball: RigidBody2D) -> void:
 	pass
 
 func _apply_multiball_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_summon_ball_bumper_effect(_ball: RigidBody2D) -> void:
 	pass
 
 func level_up() -> bool:
