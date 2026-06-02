@@ -188,6 +188,7 @@ func _create_bumper_from_config(config: Dictionary, bumper_name: String) -> Bump
 	bumper.position = config.get("position", Vector2.ZERO)
 	bumper.base_damage = int(config.get("damage", 1))
 	bumper.base_impulse_strength = float(config.get("impulse_strength", 130.0))
+	bumper.cooldown_time = float(config.get("cooldown_time", bumper.cooldown_time))
 	bumper.bumper_type = str(config.get("bumper_type", "normal"))
 	bumper.level = int(config.get("level", 1))
 	var collision_shape: CollisionShape2D = CollisionShape2D.new()

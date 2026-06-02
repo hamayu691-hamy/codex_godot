@@ -75,6 +75,8 @@ polygon = PackedVector2Array(-80, -10, 80, -10, 80, 10, -80, 10)
 
 [node name="Bullets" type="Node2D" parent="."]
 
+[node name="AssistBalls" type="Node2D" parent="."]
+
 [node name="EnemyGunMarker" type="Marker2D" parent="."]
 position = Vector2(200, 70)
 
