@@ -78,7 +78,9 @@ const ASSIST_BALL_COLLISION_RADIUS: float = 9.0
 const ASSIST_BALL_SPAWN_OFFSET: Vector2 = Vector2(0.0, -30.0)
 const ASSIST_BALL_SPAWN_IMPULSE_BASE: Vector2 = Vector2(0.0, -520.0)
 const ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X: float = 260.0
-const ASSIST_BALL_VISUAL_COLOR: Color = Color(0.45, 1.0, 0.85, 1.0)
+const ASSIST_BALL_VISUAL_COLOR: Color = Color(0.45, 1.0, 0.85, 0.74)
+const MAIN_BALL_RING_COLOR: Color = Color(1.0, 0.98, 0.62, 0.55)
+const MAIN_BALL_MARKER_COLOR: Color = Color(1.0, 1.0, 0.9, 0.92)
 const BUMPER_SPRITE_TARGET_DIAMETER: float = 36.0
 const ENEMY_SPRITE_TARGET_DIAMETER: float = 40.0
 const PIN_COLLISION_RADIUS: float = 12.0
@@ -115,6 +117,8 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var enemy_hp_label: Label = $UI/EnemyHpLabel
 @onready var combo_label: Label = $UI/ComboLabel
 @onready var bonus_damage_label: Label = $UI/BonusDamageLabel
+@onready var assist_balls_label: Label = $UI/AssistBallsLabel
+@onready var status_label: Label = $UI/StatusLabel
 @onready var victory_label: Label = $UI/VictoryLabel
 @onready var game_over_label: Label = $UI/GameOverLabel
 @onready var reward_panel: Panel = $UI/RewardPanel
@@ -181,6 +185,8 @@ func _ready() -> void:
 	_update_enemy_hp_label()
 	_update_combo_label()
 	_update_bonus_damage_label()
+	_update_assist_balls_label()
+	_update_status_label()
 	victory_label.visible = false
 	game_over_label.visible = false
 	_reset_battle()
@@ -247,7 +253,36 @@ func _setup_ball_visual() -> void:
 	if ball_visual == null:
 		return
 	_try_attach_sprite(ball, ball_config, ball_visual, "BallSprite")
+	_add_main_ball_focus_marker()
 	_sync_ball_size_with_visual()
+
+
+func _add_main_ball_focus_marker() -> void:
+	if ball.get_node_or_null("MainBallRing") == null:
+		var ring: Line2D = Line2D.new()
+		ring.name = "MainBallRing"
+		ring.width = 2.0
+		ring.default_color = MAIN_BALL_RING_COLOR
+		ring.closed = true
+		ring.z_index = 3
+		var ring_points: PackedVector2Array = PackedVector2Array()
+		var ring_radius: float = BALL_SPRITE_TARGET_DIAMETER * 0.62
+		for index: int in range(24):
+			var angle: float = TAU * float(index) / 24.0
+			ring_points.append(Vector2(cos(angle), sin(angle)) * ring_radius)
+		ring.points = ring_points
+		ball.add_child(ring)
+	if ball.get_node_or_null("MainBallMarker") == null:
+		var marker: Polygon2D = Polygon2D.new()
+		marker.name = "MainBallMarker"
+		marker.color = MAIN_BALL_MARKER_COLOR
+		marker.z_index = 4
+		marker.polygon = PackedVector2Array([
+			Vector2(0.0, -18.0),
+			Vector2(4.0, -12.0),
+			Vector2(-4.0, -12.0),
+		])
+		ball.add_child(marker)
 
 func _sync_ball_size_with_visual() -> void:
 	var ball_sprite: Sprite2D = ball.get_node_or_null("BallSprite") as Sprite2D
@@ -758,7 +793,9 @@ func _spawn_assist_ball(bumper: Bumper) -> void:
 	assist_ball.global_position = bumper.global_position + ASSIST_BALL_SPAWN_OFFSET
 	_add_assist_ball_collision(assist_ball)
 	_add_assist_ball_visual(assist_ball)
+	assist_ball.expired.connect(_on_assist_ball_expired)
 	assist_balls_root.add_child(assist_ball)
+	_update_assist_balls_label()
 	var random_x: float = randf_range(-ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X, ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X)
 	assist_ball.apply_central_impulse(ASSIST_BALL_SPAWN_IMPULSE_BASE + Vector2(random_x, 0.0))
 	_spawn_hit_effect(assist_ball.global_position)
@@ -777,14 +814,14 @@ func _add_assist_ball_visual(assist_ball: AssistBall) -> void:
 	visual.name = "AssistBallVisual"
 	visual.color = ASSIST_BALL_VISUAL_COLOR
 	visual.polygon = PackedVector2Array([
-		Vector2(0.0, -9.0),
-		Vector2(6.4, -6.4),
-		Vector2(9.0, 0.0),
-		Vector2(6.4, 6.4),
-		Vector2(0.0, 9.0),
-		Vector2(-6.4, 6.4),
-		Vector2(-9.0, 0.0),
-		Vector2(-6.4, -6.4),
+		Vector2(0.0, -7.2),
+		Vector2(5.1, -5.1),
+		Vector2(7.2, 0.0),
+		Vector2(5.1, 5.1),
+		Vector2(0.0, 7.2),
+		Vector2(-5.1, 5.1),
+		Vector2(-7.2, 0.0),
+		Vector2(-5.1, -5.1),
 	])
 	assist_ball.add_child(visual)
 
@@ -819,9 +856,14 @@ func _try_hit_assist_ball_with_bullet(bullet: Area2D) -> bool:
 	return false
 
 
+func _on_assist_ball_expired(_assist_ball: AssistBall) -> void:
+	call_deferred("_update_assist_balls_label")
+
+
 func _clear_assist_balls() -> void:
 	for child: Node in assist_balls_root.get_children():
 		child.queue_free()
+	call_deferred("_update_assist_balls_label")
 
 func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 	_update_enemy_hp_label()
@@ -1003,6 +1045,7 @@ func _apply_add_heal_bumper_reward() -> bool:
 
 func _apply_enhance_slow_reward() -> bool:
 	_slow_effect_multiplier += 0.25
+	_update_status_label()
 	return false
 
 func _start_next_battle_placeholder() -> void:
@@ -1023,9 +1066,37 @@ func _update_enemy_hp_label() -> void:
 
 func _update_combo_label() -> void:
 	combo_label.text = "Combo: %d" % combo_count
+	_update_status_label()
 
 func _update_bonus_damage_label() -> void:
 	bonus_damage_label.text = "Next Bonus DMG: +%d" % _next_enemy_hit_bonus_damage
+	_update_status_label()
+
+func _update_assist_balls_label() -> void:
+	assist_balls_label.text = "Assist Balls: %d / %d" % [_get_active_assist_ball_count(), ASSIST_BALL_MAX_COUNT]
+	_update_status_label()
+
+func _update_status_label() -> void:
+	if not is_node_ready():
+		return
+	var status_lines: Array[String] = [
+		"Status: %s" % _get_battle_status_text(),
+		"Combo: %d" % combo_count,
+		"Next Bonus Damage: +%d" % _next_enemy_hit_bonus_damage,
+		"Assist Balls: %d / %d" % [_get_active_assist_ball_count(), ASSIST_BALL_MAX_COUNT],
+	]
+	if _slow_effect_multiplier > 1.0:
+		status_lines.append("Slow Boost: x%.2f" % _slow_effect_multiplier)
+	status_label.text = "\n".join(status_lines)
+
+func _get_battle_status_text() -> String:
+	if _is_victory:
+		return "Victory"
+	if _is_game_over:
+		return "Game Over"
+	if not _is_ball_alive:
+		return "Ball Down"
+	return "In Battle"
 
 func _reset_combo_count() -> void:
 	combo_count = 0
@@ -1097,6 +1168,7 @@ func _reset_battle() -> void:
 	_reset_combo_count()
 	_update_bonus_damage_label()
 	_update_enemy_hp_label()
+	_update_assist_balls_label()
 	ball_hp_bar.max_value = _ball_hp
 	ball_hp_bar.value = _ball_hp
 	victory_label.visible = false

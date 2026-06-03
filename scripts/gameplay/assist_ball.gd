@@ -8,6 +8,10 @@ signal expired(assist_ball: AssistBall)
 @export var max_speed: float = 850.0
 @export var life_time: float = 8.0
 
+const LOW_LIFE_FLASH_TIME: float = 2.0
+const LOW_LIFE_FLASH_SPEED: float = 12.0
+const LOW_LIFE_MIN_ALPHA: float = 0.35
+
 var _elapsed: float = 0.0
 var _is_disappearing: bool = false
 
@@ -23,7 +27,20 @@ func _physics_process(delta: float) -> void:
 	if life_time > 0.0 and _elapsed >= life_time:
 		disappear()
 		return
+	_update_low_life_flash()
 	_cap_speed()
+
+
+func _update_low_life_flash() -> void:
+	var visual: CanvasItem = get_node_or_null("AssistBallVisual") as CanvasItem
+	if visual == null or life_time <= 0.0:
+		return
+	var remaining_time: float = life_time - _elapsed
+	if remaining_time > LOW_LIFE_FLASH_TIME:
+		visual.modulate.a = 1.0
+		return
+	var flash_amount: float = (sin(_elapsed * LOW_LIFE_FLASH_SPEED) + 1.0) * 0.5
+	visual.modulate.a = lerpf(LOW_LIFE_MIN_ALPHA, 1.0, flash_amount)
 
 
 func take_damage(damage: int = 1) -> void:
