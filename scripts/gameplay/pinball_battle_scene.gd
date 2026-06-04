@@ -1010,6 +1010,8 @@ func _apply_reward(reward_id: String) -> bool:
 			return _apply_random_bumper_damage_reward()
 		"add_heal_bumper":
 			return _apply_add_heal_bumper_reward()
+		"add_summon_ball_bumper":
+			return _apply_add_summon_ball_bumper_reward()
 		"enhance_slow":
 			return _apply_enhance_slow_reward()
 	return false
@@ -1038,6 +1040,19 @@ func _apply_add_heal_bumper_reward() -> bool:
 		"impulse_strength": 130.0,
 		"bumper_type": "heal",
 		"sprite_path": "res://gazou/banper_2.png",
+		"sprite_scale": BUMPER_SPRITE_SCALE,
+	}
+	_is_waiting_for_pin_replacement_selection = true
+	return true
+
+func _apply_add_summon_ball_bumper_reward() -> bool:
+	_pending_reward_bumper_config = {
+		"level": 1,
+		"damage": 1,
+		"impulse_strength": 130.0,
+		"bumper_type": "summon_ball",
+		"cooldown_time": 1.2,
+		"sprite_path": "res://gazou/banper_3.png",
 		"sprite_scale": BUMPER_SPRITE_SCALE,
 	}
 	_is_waiting_for_pin_replacement_selection = true

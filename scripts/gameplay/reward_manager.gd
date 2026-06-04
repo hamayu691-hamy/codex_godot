@@ -5,6 +5,7 @@ const REWARD_OPTION_IDS: Array[String] = [
 	"normal_to_power",
 	"random_bumper_damage",
 	"add_heal_bumper",
+	"add_summon_ball_bumper",
 	"enhance_slow",
 ]
 
@@ -24,6 +25,8 @@ func get_reward_label(reward_id: String, bumper_max_level: int) -> String:
 			return "ランダムなバンパー Lv+1 (最大Lv.%d) (Lv.%d)" % [bumper_max_level, current_level]
 		"add_heal_bumper":
 			return "healバンパーを1つ追加 (Lv.%d)" % current_level
+		"add_summon_ball_bumper":
+			return "summon_ballバンパーを1つ追加 (Lv.%d)" % current_level
 		"enhance_slow":
 			return "slowバンパー効果を強化 (Lv.%d)" % current_level
 		_:
@@ -37,6 +40,8 @@ func get_reward_result_text(reward_id: String, bumper_max_level: int) -> String:
 			return "ランダムなバンパーのLvが1上がりました（最大Lv.%d）" % bumper_max_level
 		"add_heal_bumper":
 			return "healバンパーを獲得しました。配置先のピンを選択してください"
+		"add_summon_ball_bumper":
+			return "summon_ballバンパーを獲得しました。配置先のピンを選択してください"
 		"enhance_slow":
 			return "slowバンパー効果を強化しました"
 		_:
