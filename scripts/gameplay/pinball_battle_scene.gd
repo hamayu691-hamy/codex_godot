@@ -33,7 +33,7 @@ const DEBUG_ENEMY_ZERO_HP_KEY: Key = KEY_K
 const DEBUG_REPLACE_PIN_WITH_POWER_BUMPER_KEY: Key = KEY_B
 const BALL_HP_INITIAL: int = 20
 const BUMPER_GROUP: StringName = &"bumpers"
-const BUMPER_COLLISION_RADIUS: float = 18.0
+const BUMPER_COLLISION_RADIUS: float = 36.0
 const BUMPER_VISUAL_COLOR: Color = Color(0.2, 0.9, 0.95, 1.0)
 const BUMPER_VISUAL_COLOR_BY_TYPE: Dictionary = {
 	"normal": Color(0.2, 0.9, 0.95, 1.0),
@@ -81,25 +81,25 @@ const ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X: float = 260.0
 const ASSIST_BALL_VISUAL_COLOR: Color = Color(0.45, 1.0, 0.85, 0.74)
 const MAIN_BALL_RING_COLOR: Color = Color(1.0, 0.98, 0.62, 0.55)
 const MAIN_BALL_MARKER_COLOR: Color = Color(1.0, 1.0, 0.9, 0.92)
-const BUMPER_SPRITE_TARGET_DIAMETER: float = 36.0
+const BUMPER_SPRITE_TARGET_DIAMETER: float = 72.0
 const ENEMY_SPRITE_TARGET_DIAMETER: float = 40.0
 const PIN_COLLISION_RADIUS: float = 12.0
 const BALL_SPRITE_SCALE: Vector2 = Vector2.ONE * (BALL_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
 const BUMPER_SPRITE_SCALE: Vector2 = Vector2.ONE * (BUMPER_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
 const ENEMY_SPRITE_SCALE: Vector2 = Vector2.ONE * (ENEMY_SPRITE_TARGET_DIAMETER / LARGE_TEXTURE_BASE_SIZE)
 const BUMPER_VISUAL_POINTS: Array[Vector2] = [
-	Vector2(0.0, -18.0),
-	Vector2(9.0, -15.5885),
-	Vector2(15.5885, -9.0),
-	Vector2(18.0, 0.0),
-	Vector2(15.5885, 9.0),
-	Vector2(9.0, 15.5885),
-	Vector2(0.0, 18.0),
-	Vector2(-9.0, 15.5885),
-	Vector2(-15.5885, 9.0),
-	Vector2(-18.0, 0.0),
-	Vector2(-15.5885, -9.0),
-	Vector2(-9.0, -15.5885),
+	Vector2(0.0, -36.0),
+	Vector2(18.0, -31.177),
+	Vector2(31.177, -18.0),
+	Vector2(36.0, 0.0),
+	Vector2(31.177, 18.0),
+	Vector2(18.0, 31.177),
+	Vector2(0.0, 36.0),
+	Vector2(-18.0, 31.177),
+	Vector2(-31.177, 18.0),
+	Vector2(-36.0, 0.0),
+	Vector2(-31.177, -18.0),
+	Vector2(-18.0, -31.177),
 ]
 
 @onready var background_root: Node2D = $Background
