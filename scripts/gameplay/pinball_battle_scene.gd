@@ -742,14 +742,18 @@ func reset_ball() -> void:
 func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 	if _is_victory or _is_game_over:
 		return
-	if body != ball:
+	if body == ball:
+		bumper.on_ball_entered(ball)
 		return
-	bumper.on_ball_entered(ball)
+	if body is AssistBall:
+		var assist_ball: AssistBall = body
+		if not assist_ball.is_queued_for_deletion():
+			bumper.on_ball_entered(assist_ball)
 
-func _on_bumper_hit(bumper: Bumper, bumper_type: String, _damage: int) -> void:
+func _on_bumper_hit(bumper: Bumper, bumper_type: String, damage: int, hit_ball: RigidBody2D) -> void:
 	if _is_victory or _is_game_over:
 		return
-	_apply_bumper_effect(bumper_type)
+	_apply_bumper_effect(bumper_type, hit_ball, damage)
 	if bumper_type == "summon_ball":
 		_spawn_assist_ball(bumper)
 	_update_combo_label()
@@ -777,10 +781,13 @@ func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 	_reset_combo_count()
 
 func _spawn_assist_ball(bumper: Bumper) -> void:
+	if not is_instance_valid(bumper):
+		return
 	if _get_active_assist_ball_count() >= ASSIST_BALL_MAX_COUNT:
 		return
 	var assist_ball: AssistBall = AssistBall.new()
 	assist_ball.name = "AssistBall"
+	assist_ball.max_hp = ASSIST_BALL_HP
 	assist_ball.hp = ASSIST_BALL_HP
 	assist_ball.attack_damage = ASSIST_BALL_ATTACK_DAMAGE
 	assist_ball.life_time = ASSIST_BALL_LIFE_TIME
@@ -1117,31 +1124,46 @@ func _reset_combo_count() -> void:
 	combo_count = 0
 	_update_combo_label()
 
-func _apply_bumper_effect(bumper_type: String) -> void:
+func _apply_bumper_effect(bumper_type: String, hit_ball: RigidBody2D, bumper_damage: int) -> void:
 	match bumper_type:
 		"normal":
 			combo_count += 1
 		"power":
 			combo_count += 2
-			_next_enemy_hit_bonus_damage += 1
+			if hit_ball is AssistBall:
+				var power_assist_ball: AssistBall = hit_ball
+				power_assist_ball.boost_attack(maxi(bumper_damage, 1))
+				_spawn_hit_effect(power_assist_ball.global_position)
+			else:
+				_next_enemy_hit_bonus_damage += 1
 		"heal":
-			if _ball_hp < _get_ball_max_hp():
-				_ball_hp += 1
-				ball_hp_bar.value = _ball_hp
+			if hit_ball is AssistBall:
+				var heal_assist_ball: AssistBall = hit_ball
+				heal_assist_ball.heal(maxi(bumper_damage, 1))
+			else:
+				if _ball_hp < _get_ball_max_hp():
+					_ball_hp += maxi(bumper_damage, 1)
+					_ball_hp = mini(_ball_hp, _get_ball_max_hp())
+					ball_hp_bar.value = _ball_hp
 		"slow":
-			var slow_rate: float = max(0.2, 0.8 - ((_slow_effect_multiplier - 1.0) * 0.15))
-			var new_velocity: Vector2 = ball.linear_velocity * slow_rate
-			var speed: float = new_velocity.length()
-			if speed < BALL_MIN_SPEED:
-				if speed <= 0.001:
-					new_velocity = Vector2.UP * BALL_MIN_SPEED
-				else:
-					new_velocity = new_velocity.normalized() * BALL_MIN_SPEED
-			ball.linear_velocity = new_velocity
+			_apply_slow_bumper_velocity(hit_ball)
 		"summon_ball":
 			combo_count += 1
 		_:
 			combo_count += 1
+
+func _apply_slow_bumper_velocity(target_ball: RigidBody2D) -> void:
+	if target_ball == null or not is_instance_valid(target_ball):
+		return
+	var slow_rate: float = max(0.2, 0.8 - ((_slow_effect_multiplier - 1.0) * 0.15))
+	var new_velocity: Vector2 = target_ball.linear_velocity * slow_rate
+	var speed: float = new_velocity.length()
+	if speed < BALL_MIN_SPEED:
+		if speed <= 0.001:
+			new_velocity = Vector2.UP * BALL_MIN_SPEED
+		else:
+			new_velocity = new_velocity.normalized() * BALL_MIN_SPEED
+	target_ball.linear_velocity = new_velocity
 
 func _damage_ball(damage: int) -> void:
 	if _is_victory or _is_game_over or not _is_ball_alive:
