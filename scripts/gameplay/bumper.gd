@@ -1,7 +1,7 @@
 class_name Bumper
 extends Area2D
 
-signal hit(bumper: Bumper, bumper_type: String, damage: int)
+signal hit(bumper: Bumper, bumper_type: String, damage: int, ball: RigidBody2D)
 
 const HIT_SCALE: Vector2 = Vector2(1.28, 1.28)
 const HIT_FLASH_COLOR_BY_TYPE: Dictionary = {
@@ -36,8 +36,8 @@ const BUMPER_DISPLAY_NAMES: Dictionary = {
 
 const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 	"normal": "基本効果のみの標準バンパー。",
-	"power": "次回の敵ヒットダメージ増加を狙う攻撃補助。",
-	"heal": "ボールやプレイヤーの回復に関わる効果（実装予定含む）。",
+	"power": "次回の敵ヒットダメージ増加や補助ボールの攻撃力強化を狙う攻撃補助。",
+	"heal": "メインボールや補助ボールのHP回復に関わる効果。",
 	"slow": "敵や弾などの行動速度低下を狙う効果。",
 	"charge": "チャージ系の蓄積や解放に関わる効果。",
 	"critical": "クリティカル関連の強化効果。",
@@ -52,7 +52,7 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 	"lightning": "電撃系の追加効果。",
 	"bomb": "範囲爆発系の追加効果。",
 	"multiball": "ボール増加に関わる効果。",
-	"summon_ball": "HP1/攻撃力1の補助ボールを生成。",
+	"summon_ball": "HP1/攻撃力1の補助ボールを生成。補助ボールでも発動可能。",
 }
 
 @export var base_damage: int = 1
@@ -92,7 +92,7 @@ func on_ball_entered(ball: RigidBody2D) -> void:
 	_apply_impulse_to_ball(ball)
 	_apply_bumper_effect(ball)
 	_play_hit_feedback()
-	hit.emit(self, bumper_type, damage)
+	hit.emit(self, bumper_type, damage, ball)
 
 func _apply_bumper_effect(ball: RigidBody2D) -> void:
 	match bumper_type:
