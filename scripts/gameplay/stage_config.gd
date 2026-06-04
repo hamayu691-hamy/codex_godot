@@ -24,7 +24,7 @@ const STAGES: Dictionary = {
 				"impulse_strength": 130.0,
 				"bumper_type": "normal",
 				"sprite_path": "res://gazou/banper_0.png",
-				"sprite_scale": Vector2.ONE * (36.0 / 1254.0),
+				"sprite_scale": Vector2.ONE * (72.0 / 1254.0),
 			},
 			{
 				"position": Vector2(600.0, 240.0),
@@ -33,7 +33,7 @@ const STAGES: Dictionary = {
 				"impulse_strength": 130.0,
 				"bumper_type": "power",
 				"sprite_path": "res://gazou/banper_0.png",
-				"sprite_scale": Vector2.ONE * (36.0 / 1254.0),
+				"sprite_scale": Vector2.ONE * (72.0 / 1254.0),
 			},
 			{
 				"position": Vector2(920.0, 285.0),
@@ -42,7 +42,7 @@ const STAGES: Dictionary = {
 				"impulse_strength": 130.0,
 				"bumper_type": "slow",
 				"sprite_path": "res://gazou/banper_0.png",
-				"sprite_scale": Vector2.ONE * (36.0 / 1254.0),
+				"sprite_scale": Vector2.ONE * (72.0 / 1254.0),
 			},
 			{
 				"position": Vector2(600.0, 360.0),
@@ -52,7 +52,7 @@ const STAGES: Dictionary = {
 				"bumper_type": "summon_ball",
 				"cooldown_time": 1.2,
 				"sprite_path": "res://gazou/banper_3.png",
-				"sprite_scale": Vector2.ONE * (36.0 / 1254.0),
+				"sprite_scale": Vector2.ONE * (72.0 / 1254.0),
 			},
 		],
 		"pin_configs": [
