@@ -52,7 +52,7 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 	"lightning": "電撃系の追加効果。",
 	"bomb": "範囲爆発系の追加効果。",
 	"multiball": "ボール増加に関わる効果。",
-	"summon_ball": "HP1/攻撃力1の補助ボールを生成。補助ボールでも発動可能。",
+	"summon_ball": "設定されたタイプの補助ボールを生成。補助ボールでも発動可能。",
 }
 
 @export var base_damage: int = 1
@@ -65,6 +65,7 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 @export var damage: int = 1
 @export var impulse_strength: float = 130.0
 @export var bumper_type: String = "normal"
+@export_enum("normal", "attack", "shield", "combo") var summon_assist_ball_type: String = "normal"
 @export var cooldown_time: float = 0.08
 
 var _cooldown_remaining: float = 0.0
@@ -273,6 +274,8 @@ func get_tooltip_text() -> String:
 	var cooldown_state: String = "はい"
 	if _cooldown_remaining <= 0.0:
 		cooldown_state = "いいえ"
+	if bumper_type == "summon_ball":
+		effect_description = "%s 生成タイプ: %s。" % [effect_description, summon_assist_ball_type]
 	return "バンパー名: %s\n種別: %s\n効果: %s\nDamage: %d\nCooldown: %.2f 秒\nクールダウン中: %s" % [
 		display_name,
 		bumper_type,

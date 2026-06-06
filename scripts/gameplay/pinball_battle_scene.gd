@@ -70,15 +70,11 @@ const DEFAULT_SPRITE_SCALE: Vector2 = Vector2.ONE
 const LARGE_TEXTURE_BASE_SIZE: float = 1254.0
 const BALL_SPRITE_TARGET_DIAMETER: float = 24.0
 const ASSIST_BALL_MAX_COUNT: int = 5
-const ASSIST_BALL_HP: int = 1
-const ASSIST_BALL_ATTACK_DAMAGE: int = 1
-const ASSIST_BALL_LIFE_TIME: float = 8.0
 const ASSIST_BALL_MAX_SPEED: float = 850.0
 const ASSIST_BALL_COLLISION_RADIUS: float = 9.0
 const ASSIST_BALL_SPAWN_OFFSET: Vector2 = Vector2(0.0, -30.0)
 const ASSIST_BALL_SPAWN_IMPULSE_BASE: Vector2 = Vector2(0.0, -520.0)
 const ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X: float = 260.0
-const ASSIST_BALL_VISUAL_COLOR: Color = Color(0.45, 1.0, 0.85, 0.74)
 const MAIN_BALL_RING_COLOR: Color = Color(1.0, 0.98, 0.62, 0.55)
 const MAIN_BALL_MARKER_COLOR: Color = Color(1.0, 1.0, 0.9, 0.92)
 const BUMPER_SPRITE_TARGET_DIAMETER: float = 72.0
@@ -763,8 +759,12 @@ func _on_bumper_hit(bumper: Bumper, bumper_type: String, damage: int, hit_ball: 
 	if _is_victory or _is_game_over:
 		return
 	_apply_bumper_effect(bumper_type, hit_ball, damage)
+	if hit_ball is AssistBall:
+		var assist_ball: AssistBall = hit_ball
+		if assist_ball.grants_combo_on_bumper_hit():
+			combo_count += 1
 	if bumper_type == "summon_ball":
-		_spawn_assist_ball(bumper)
+		_spawn_assist_ball(bumper, bumper.summon_assist_ball_type)
 	_update_combo_label()
 	_update_bonus_damage_label()
 
@@ -789,17 +789,14 @@ func _on_enemy_body_entered(body: Node2D, enemy: Enemy) -> void:
 	_update_bonus_damage_label()
 	_reset_combo_count()
 
-func _spawn_assist_ball(bumper: Bumper) -> void:
+func _spawn_assist_ball(bumper: Bumper, assist_ball_type: String = AssistBall.DEFAULT_TYPE) -> void:
 	if not is_instance_valid(bumper):
 		return
 	if _get_active_assist_ball_count() >= ASSIST_BALL_MAX_COUNT:
 		return
 	var assist_ball: AssistBall = AssistBall.new()
-	assist_ball.name = "AssistBall"
-	assist_ball.max_hp = ASSIST_BALL_HP
-	assist_ball.hp = ASSIST_BALL_HP
-	assist_ball.attack_damage = ASSIST_BALL_ATTACK_DAMAGE
-	assist_ball.life_time = ASSIST_BALL_LIFE_TIME
+	assist_ball.configure_type(assist_ball_type)
+	assist_ball.name = "AssistBall_%s" % assist_ball.assist_ball_type
 	assist_ball.max_speed = ASSIST_BALL_MAX_SPEED
 	assist_ball.mass = 0.22
 	assist_ball.gravity_scale = ball.gravity_scale
@@ -829,7 +826,7 @@ func _add_assist_ball_collision(assist_ball: AssistBall) -> void:
 func _add_assist_ball_visual(assist_ball: AssistBall) -> void:
 	var visual: Polygon2D = Polygon2D.new()
 	visual.name = "AssistBallVisual"
-	visual.color = ASSIST_BALL_VISUAL_COLOR
+	visual.color = assist_ball.visual_color
 	visual.polygon = PackedVector2Array([
 		Vector2(0.0, -7.2),
 		Vector2(5.1, -5.1),
@@ -856,7 +853,8 @@ func _apply_assist_ball_enemy_hit(assist_ball: AssistBall, enemy: Enemy) -> void
 		return
 	if assist_ball.is_queued_for_deletion():
 		return
-	enemy.take_damage(assist_ball.attack_damage)
+	if assist_ball.attack_damage > 0:
+		enemy.take_damage(assist_ball.attack_damage)
 	assist_ball.take_damage(1)
 
 
@@ -868,7 +866,10 @@ func _try_hit_assist_ball_with_bullet(bullet: Area2D) -> bool:
 		if assist_ball.is_queued_for_deletion():
 			continue
 		if bullet.global_position.distance_to(assist_ball.global_position) <= (ASSIST_BALL_COLLISION_RADIUS + BULLET_COLLISION_RADIUS):
-			assist_ball.take_damage(1)
+			if assist_ball.blocks_enemy_bullet():
+				assist_ball.disappear()
+			else:
+				assist_ball.take_damage(1)
 			return true
 	return false
 
@@ -1068,6 +1069,7 @@ func _apply_add_summon_ball_bumper_reward() -> bool:
 		"damage": 1,
 		"impulse_strength": 130.0,
 		"bumper_type": "summon_ball",
+		"assist_ball_type": AssistBall.DEFAULT_TYPE,
 		"cooldown_time": 1.2,
 		"sprite_path": "res://gazou/banper_3.png",
 		"sprite_scale": BUMPER_SPRITE_SCALE,
