@@ -701,10 +701,18 @@ func _on_drain_body_entered(body: Node2D) -> void:
 		assist_ball.disappear()
 
 func _on_ball_body_entered(body: Node) -> void:
+	_try_apply_flipper_impulse(ball, body)
+
+func _on_assist_ball_body_entered(body: Node, assist_ball: AssistBall) -> void:
+	if not is_instance_valid(assist_ball) or assist_ball.is_queued_for_deletion():
+		return
+	_try_apply_flipper_impulse(assist_ball, body)
+
+func _try_apply_flipper_impulse(hit_ball: RigidBody2D, body: Node) -> void:
 	for state: Dictionary in _flippers:
 		var flipper: StaticBody2D = state["node"]
 		if body == flipper and _is_flipper_striking(state):
-			_apply_flipper_impulse(flipper, state["config"])
+			_apply_flipper_impulse(hit_ball, flipper, state["config"])
 			break
 
 func _is_flipper_striking(state: Dictionary) -> bool:
@@ -715,18 +723,19 @@ func _is_flipper_striking(state: Dictionary) -> bool:
 		return angular_speed <= -FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
 	return angular_speed >= FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD
 
-func _apply_flipper_impulse(flipper: StaticBody2D, config: Dictionary) -> void:
+func _apply_flipper_impulse(hit_ball: RigidBody2D, flipper: StaticBody2D, config: Dictionary) -> void:
 	if _is_victory or _is_game_over:
 		return
 	var side: float = float(config.get("side", 1.0))
-	var pivot_to_ball: Vector2 = (ball.global_position - flipper.global_position).normalized()
+	var pivot_to_ball: Vector2 = (hit_ball.global_position - flipper.global_position).normalized()
 	var impulse_direction: Vector2 = Vector2(0.4 * side, -1.0).normalized()
 	if pivot_to_ball != Vector2.ZERO:
 		impulse_direction = (impulse_direction + pivot_to_ball * 0.35).normalized()
 	var hit_impulse: float = float(config.get("hit_impulse", 1600.0))
 	var impulse: Vector2 = impulse_direction * hit_impulse
-	ball.apply_central_impulse(impulse)
-	_cap_ball_speed(BALL_FLIPPER_POST_HIT_MAX_SPEED)
+	hit_ball.apply_central_impulse(impulse)
+	if hit_ball == ball:
+		_cap_ball_speed(BALL_FLIPPER_POST_HIT_MAX_SPEED)
 
 func reset_ball() -> void:
 	if not _is_ball_alive:
@@ -801,6 +810,7 @@ func _spawn_assist_ball(bumper: Bumper) -> void:
 	_add_assist_ball_collision(assist_ball)
 	_add_assist_ball_visual(assist_ball)
 	assist_ball.expired.connect(_on_assist_ball_expired)
+	assist_ball.body_entered.connect(_on_assist_ball_body_entered.bind(assist_ball))
 	assist_balls_root.add_child(assist_ball)
 	_update_assist_balls_label()
 	var random_x: float = randf_range(-ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X, ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X)
