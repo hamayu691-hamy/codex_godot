@@ -3,11 +3,25 @@ extends RigidBody2D
 
 signal expired(assist_ball: AssistBall)
 
+const TYPE_NORMAL: String = "normal"
+const TYPE_ATTACK: String = "attack"
+const TYPE_SHIELD: String = "shield"
+const TYPE_COMBO: String = "combo"
+const DEFAULT_TYPE: String = TYPE_NORMAL
+const TYPE_CONFIGS: Dictionary = {
+	TYPE_NORMAL: {"hp": 1, "attack_damage": 1, "life_time": 8.0, "visual_color": Color(0.45, 1.0, 0.85, 0.74)},
+	TYPE_ATTACK: {"hp": 1, "attack_damage": 2, "life_time": 8.0, "visual_color": Color(1.0, 0.35, 0.25, 0.82)},
+	TYPE_SHIELD: {"hp": 1, "attack_damage": 0, "life_time": 8.0, "visual_color": Color(0.35, 0.7, 1.0, 0.82)},
+	TYPE_COMBO: {"hp": 1, "attack_damage": 1, "life_time": 8.0, "visual_color": Color(0.95, 0.45, 1.0, 0.82)},
+}
+
+@export_enum("normal", "attack", "shield", "combo") var assist_ball_type: String = DEFAULT_TYPE
 @export var max_hp: int = 1
 @export var hp: int = 1
 @export var attack_damage: int = 1
 @export var max_speed: float = 850.0
 @export var life_time: float = 8.0
+@export var visual_color: Color = Color(0.45, 1.0, 0.85, 0.74)
 
 const LOW_LIFE_FLASH_TIME: float = 2.0
 const LOW_LIFE_FLASH_SPEED: float = 12.0
@@ -20,11 +34,39 @@ var _is_disappearing: bool = false
 
 
 func _ready() -> void:
+	_apply_visual_color()
 	max_hp = maxi(max_hp, hp)
 	contact_monitor = true
 	max_contacts_reported = 8
 	continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
 	_update_power_visual()
+
+
+func configure_type(new_type: String) -> void:
+	assist_ball_type = new_type
+	if not TYPE_CONFIGS.has(assist_ball_type):
+		assist_ball_type = DEFAULT_TYPE
+	var config: Dictionary = TYPE_CONFIGS[assist_ball_type]
+	hp = int(config.get("hp", 1))
+	max_hp = hp
+	attack_damage = int(config.get("attack_damage", 1))
+	life_time = float(config.get("life_time", 8.0))
+	visual_color = config.get("visual_color", Color.WHITE)
+	_apply_visual_color()
+
+
+func grants_combo_on_bumper_hit() -> bool:
+	return assist_ball_type == TYPE_COMBO
+
+
+func blocks_enemy_bullet() -> bool:
+	return assist_ball_type == TYPE_SHIELD
+
+
+func _apply_visual_color() -> void:
+	var visual: Polygon2D = get_node_or_null("AssistBallVisual") as Polygon2D
+	if visual != null:
+		visual.color = visual_color
 
 
 func _physics_process(delta: float) -> void:

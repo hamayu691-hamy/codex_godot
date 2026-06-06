@@ -5,6 +5,7 @@ const StageConfig = preload("res://scripts/gameplay/stage_config.gd")
 const Pin = preload("res://scripts/gameplay/pin.gd")
 const Bumper = preload("res://scripts/gameplay/bumper.gd")
 const Enemy = preload("res://scripts/gameplay/enemy.gd")
+const AssistBall = preload("res://scripts/gameplay/assist_ball.gd")
 
 const DEFAULT_SPRITE_SCALE: Vector2 = Vector2.ONE
 
@@ -190,6 +191,7 @@ func _create_bumper_from_config(config: Dictionary, bumper_name: String) -> Bump
 	bumper.base_impulse_strength = float(config.get("impulse_strength", 130.0))
 	bumper.cooldown_time = float(config.get("cooldown_time", bumper.cooldown_time))
 	bumper.bumper_type = str(config.get("bumper_type", "normal"))
+	bumper.summon_assist_ball_type = str(config.get("assist_ball_type", AssistBall.DEFAULT_TYPE))
 	bumper.level = int(config.get("level", 1))
 	var collision_shape: CollisionShape2D = CollisionShape2D.new()
 	var circle_shape: CircleShape2D = CircleShape2D.new()
