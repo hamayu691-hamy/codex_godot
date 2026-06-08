@@ -34,6 +34,14 @@ const BUMPER_DISPLAY_NAMES: Dictionary = {
 	"summon_ball": "Summon Ball Bumper",
 }
 
+const ASSIST_BALL_EFFECT_DESCRIPTIONS: Dictionary = {
+	"normal": "標準的な補助ボール。",
+	"attack": "攻撃力が高い補助ボール。",
+	"shield": "敵弾を防ぐ補助ボール。",
+	"combo": "バンパーヒット時にコンボを追加する補助ボール。",
+	"bomb": "爆発して範囲ダメージ＋玉を吹き飛ばす補助ボール。",
+}
+
 const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 	"normal": "基本効果のみの標準バンパー。",
 	"power": "次回の敵ヒットダメージ増加や補助ボールの攻撃力強化を狙う攻撃補助。",
@@ -65,7 +73,7 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 @export var damage: int = 1
 @export var impulse_strength: float = 130.0
 @export var bumper_type: String = "normal"
-@export_enum("normal", "attack", "shield", "combo") var summon_assist_ball_type: String = "normal"
+@export_enum("normal", "attack", "shield", "combo", "bomb") var summon_assist_ball_type: String = "normal"
 @export var cooldown_time: float = 0.08
 
 var _cooldown_remaining: float = 0.0
@@ -275,7 +283,8 @@ func get_tooltip_text() -> String:
 	if _cooldown_remaining <= 0.0:
 		cooldown_state = "いいえ"
 	if bumper_type == "summon_ball":
-		effect_description = "%s 生成タイプ: %s。" % [effect_description, summon_assist_ball_type]
+		var assist_description: String = str(ASSIST_BALL_EFFECT_DESCRIPTIONS.get(summon_assist_ball_type, "特殊な補助ボール。"))
+		effect_description = "%s 生成タイプ: %s（%s）" % [effect_description, summon_assist_ball_type, assist_description]
 	return "バンパー名: %s\n種別: %s\n効果: %s\nDamage: %d\nCooldown: %.2f 秒\nクールダウン中: %s" % [
 		display_name,
 		bumper_type,

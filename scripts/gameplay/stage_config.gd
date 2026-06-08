@@ -88,6 +88,17 @@ const STAGES: Dictionary = {
 				"sprite_path": "res://gazou/banper_2.png",
 				"sprite_scale": Vector2.ONE * (72.0 / 1254.0),
 			},
+			{
+				"position": Vector2(900.0, 400.0),
+				"level": 1,
+				"damage": 1,
+				"impulse_strength": 130.0,
+				"bumper_type": "summon_ball",
+				"assist_ball_type": "bomb",
+				"cooldown_time": 1.2,
+				"sprite_path": "res://gazou/banper_0.png",
+				"sprite_scale": Vector2.ONE * (72.0 / 1254.0),
+			},
 		],
 		"pin_configs": [
 			{"position": Vector2(360.0, 205.0), "pin_id": "pin_01", "slot_id": "slot_01", "replaceable": true, "occupied": false, "impulse_strength": 85.0, "sprite_path": "", "sprite_scale": Vector2.ONE},

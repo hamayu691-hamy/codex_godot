@@ -2,20 +2,23 @@ class_name AssistBall
 extends RigidBody2D
 
 signal expired(assist_ball: AssistBall)
+signal exploded(assist_ball: AssistBall, explosion_position: Vector2)
 
 const TYPE_NORMAL: String = "normal"
 const TYPE_ATTACK: String = "attack"
 const TYPE_SHIELD: String = "shield"
 const TYPE_COMBO: String = "combo"
+const TYPE_BOMB: String = "bomb"
 const DEFAULT_TYPE: String = TYPE_NORMAL
 const TYPE_CONFIGS: Dictionary = {
 	TYPE_NORMAL: {"hp": 1, "attack_damage": 1, "life_time": 8.0, "visual_color": Color(0.45, 1.0, 0.85, 0.74)},
 	TYPE_ATTACK: {"hp": 1, "attack_damage": 2, "life_time": 8.0, "visual_color": Color(1.0, 0.35, 0.25, 0.82)},
 	TYPE_SHIELD: {"hp": 1, "attack_damage": 0, "life_time": 8.0, "visual_color": Color(0.35, 0.7, 1.0, 0.82)},
 	TYPE_COMBO: {"hp": 1, "attack_damage": 1, "life_time": 8.0, "visual_color": Color(0.95, 0.45, 1.0, 0.82)},
+	TYPE_BOMB: {"hp": 1, "attack_damage": 1, "life_time": 8.0, "visual_color": Color(1.0, 0.55, 0.12, 0.9)},
 }
 
-@export_enum("normal", "attack", "shield", "combo") var assist_ball_type: String = DEFAULT_TYPE
+@export_enum("normal", "attack", "shield", "combo", "bomb") var assist_ball_type: String = DEFAULT_TYPE
 @export var max_hp: int = 1
 @export var hp: int = 1
 @export var attack_damage: int = 1
@@ -63,6 +66,10 @@ func blocks_enemy_bullet() -> bool:
 	return assist_ball_type == TYPE_SHIELD
 
 
+func is_bomb() -> bool:
+	return assist_ball_type == TYPE_BOMB
+
+
 func _apply_visual_color() -> void:
 	var visual: Polygon2D = get_node_or_null("AssistBallVisual") as Polygon2D
 	if visual != null:
@@ -72,7 +79,10 @@ func _apply_visual_color() -> void:
 func _physics_process(delta: float) -> void:
 	_elapsed += delta
 	if life_time > 0.0 and _elapsed >= life_time:
-		disappear()
+		if is_bomb():
+			explode()
+		else:
+			disappear()
 		return
 	_update_low_life_flash()
 	_cap_speed()
@@ -95,7 +105,10 @@ func take_damage(damage: int = 1) -> void:
 		return
 	hp -= damage
 	if hp <= 0:
-		disappear()
+		if is_bomb():
+			explode()
+		else:
+			disappear()
 	else:
 		_update_power_visual()
 
@@ -115,6 +128,15 @@ func boost_attack(amount: int = 1) -> void:
 	max_hp += 1
 	hp += 1
 	_update_power_visual()
+
+
+func explode() -> void:
+	if _is_disappearing:
+		return
+	_is_disappearing = true
+	exploded.emit(self, global_position)
+	expired.emit(self)
+	queue_free()
 
 
 func disappear() -> void:
