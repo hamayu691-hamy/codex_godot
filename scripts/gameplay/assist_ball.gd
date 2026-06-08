@@ -105,7 +105,10 @@ func take_damage(damage: int = 1) -> void:
 		return
 	hp -= damage
 	if hp <= 0:
-		disappear()
+		if is_bomb():
+			explode()
+		else:
+			disappear()
 	else:
 		_update_power_visual()
 
