@@ -75,6 +75,14 @@ const ASSIST_BALL_COLLISION_RADIUS: float = 9.0
 const ASSIST_BALL_SPAWN_OFFSET: Vector2 = Vector2(0.0, -30.0)
 const ASSIST_BALL_SPAWN_IMPULSE_BASE: Vector2 = Vector2(0.0, -520.0)
 const ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X: float = 260.0
+const BOMB_EXPLOSION_RADIUS: float = 90.0
+const BOMB_EXPLOSION_DAMAGE: int = 2
+const BOMB_MAIN_BALL_KNOCKBACK: float = 180.0
+const BOMB_ASSIST_BALL_KNOCKBACK: float = 360.0
+const BOMB_EXPLOSION_EFFECT_DURATION: float = 0.28
+const BOMB_EXPLOSION_EFFECT_START_RADIUS: float = 12.0
+const BOMB_EXPLOSION_EFFECT_COLOR: Color = Color(1.0, 0.55, 0.12, 0.62)
+const BOMB_EXPLOSION_EFFECT_SEGMENTS: int = 28
 const MAIN_BALL_RING_COLOR: Color = Color(1.0, 0.98, 0.62, 0.55)
 const MAIN_BALL_MARKER_COLOR: Color = Color(1.0, 1.0, 0.9, 0.92)
 const BUMPER_SPRITE_TARGET_DIAMETER: float = 72.0
@@ -807,6 +815,7 @@ func _spawn_assist_ball(bumper: Bumper, assist_ball_type: String = AssistBall.DE
 	_add_assist_ball_collision(assist_ball)
 	_add_assist_ball_visual(assist_ball)
 	assist_ball.expired.connect(_on_assist_ball_expired)
+	assist_ball.exploded.connect(_on_assist_ball_exploded)
 	assist_ball.body_entered.connect(_on_assist_ball_body_entered.bind(assist_ball))
 	assist_balls_root.add_child(assist_ball)
 	_update_assist_balls_label()
@@ -853,6 +862,9 @@ func _apply_assist_ball_enemy_hit(assist_ball: AssistBall, enemy: Enemy) -> void
 		return
 	if assist_ball.is_queued_for_deletion():
 		return
+	if assist_ball.is_bomb():
+		assist_ball.explode()
+		return
 	if assist_ball.attack_damage > 0:
 		enemy.take_damage(assist_ball.attack_damage)
 	assist_ball.take_damage(1)
@@ -874,9 +886,82 @@ func _try_hit_assist_ball_with_bullet(bullet: Area2D) -> bool:
 	return false
 
 
+func _on_assist_ball_exploded(_assist_ball: AssistBall, explosion_position: Vector2) -> void:
+	_apply_bomb_explosion(explosion_position, _assist_ball)
+
+
 func _on_assist_ball_expired(_assist_ball: AssistBall) -> void:
 	call_deferred("_update_assist_balls_label")
 
+
+
+func _apply_bomb_explosion(explosion_position: Vector2, source_assist_ball: AssistBall) -> void:
+	_spawn_bomb_explosion_effect(explosion_position)
+	for enemy: Enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		if enemy.current_hp <= 0:
+			continue
+		if enemy.global_position.distance_to(explosion_position) <= BOMB_EXPLOSION_RADIUS:
+			enemy.take_damage(BOMB_EXPLOSION_DAMAGE)
+
+	if _is_ball_alive and is_instance_valid(ball):
+		_apply_bomb_knockback_to_ball(ball, explosion_position, BOMB_MAIN_BALL_KNOCKBACK)
+		_cap_ball_speed(BALL_MAX_SPEED)
+
+	for child: Node in assist_balls_root.get_children():
+		if not (child is AssistBall):
+			continue
+		var assist_ball: AssistBall = child
+		if assist_ball == source_assist_ball:
+			continue
+		if assist_ball.is_queued_for_deletion():
+			continue
+		_apply_bomb_knockback_to_ball(assist_ball, explosion_position, BOMB_ASSIST_BALL_KNOCKBACK)
+		_cap_assist_ball_speed(assist_ball)
+
+
+func _apply_bomb_knockback_to_ball(target_ball: RigidBody2D, explosion_position: Vector2, impulse_strength: float) -> void:
+	if target_ball == null or not is_instance_valid(target_ball):
+		return
+	if target_ball.global_position.distance_to(explosion_position) > BOMB_EXPLOSION_RADIUS:
+		return
+	var knockback_direction: Vector2 = target_ball.global_position - explosion_position
+	if knockback_direction == Vector2.ZERO:
+		knockback_direction = target_ball.linear_velocity
+	if knockback_direction == Vector2.ZERO:
+		knockback_direction = Vector2.UP
+	target_ball.apply_central_impulse(knockback_direction.normalized() * impulse_strength)
+
+
+func _cap_assist_ball_speed(assist_ball: AssistBall) -> void:
+	if assist_ball == null or not is_instance_valid(assist_ball):
+		return
+	var speed: float = assist_ball.linear_velocity.length()
+	if speed > assist_ball.max_speed and speed > 0.0:
+		assist_ball.linear_velocity = assist_ball.linear_velocity.normalized() * assist_ball.max_speed
+
+
+func _spawn_bomb_explosion_effect(world_position: Vector2) -> void:
+	var effect: Polygon2D = Polygon2D.new()
+	var effect_points: PackedVector2Array = PackedVector2Array()
+	for index: int in range(BOMB_EXPLOSION_EFFECT_SEGMENTS):
+		var angle: float = TAU * float(index) / float(BOMB_EXPLOSION_EFFECT_SEGMENTS)
+		effect_points.append(Vector2(cos(angle), sin(angle)))
+	effect.polygon = effect_points
+	effect.color = BOMB_EXPLOSION_EFFECT_COLOR
+	effect.top_level = true
+	effect.global_position = world_position
+	effect.scale = Vector2.ONE * BOMB_EXPLOSION_EFFECT_START_RADIUS
+	add_child(effect)
+	_hit_effects.append({
+		"node": effect,
+		"elapsed": 0.0,
+		"duration": BOMB_EXPLOSION_EFFECT_DURATION,
+		"start_radius": BOMB_EXPLOSION_EFFECT_START_RADIUS,
+		"end_radius": BOMB_EXPLOSION_RADIUS,
+		"color": BOMB_EXPLOSION_EFFECT_COLOR,
+	})
 
 func _clear_assist_balls() -> void:
 	for child: Node in assist_balls_root.get_children():
@@ -965,10 +1050,14 @@ func _update_hit_effects(delta: float) -> void:
 			continue
 		var elapsed: float = float(effect_data["elapsed"]) + delta
 		effect_data["elapsed"] = elapsed
-		var progress: float = min(elapsed / HIT_EFFECT_DURATION, 1.0)
-		var radius: float = lerpf(HIT_EFFECT_START_RADIUS, HIT_EFFECT_END_RADIUS, progress)
+		var duration: float = float(effect_data.get("duration", HIT_EFFECT_DURATION))
+		var start_radius: float = float(effect_data.get("start_radius", HIT_EFFECT_START_RADIUS))
+		var end_radius: float = float(effect_data.get("end_radius", HIT_EFFECT_END_RADIUS))
+		var effect_color: Color = effect_data.get("color", HIT_EFFECT_COLOR)
+		var progress: float = min(elapsed / duration, 1.0)
+		var radius: float = lerpf(start_radius, end_radius, progress)
 		effect.scale = Vector2.ONE * radius
-		effect.color.a = HIT_EFFECT_COLOR.a * (1.0 - progress)
+		effect.color.a = effect_color.a * (1.0 - progress)
 		_hit_effects[index] = effect_data
 		if progress >= 1.0:
 			effect.queue_free()
