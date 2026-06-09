@@ -167,17 +167,17 @@ theme_override_constants/separation = 8
 [node name="BumperDamageButton" type="Button" parent="UI/RewardPanel/RewardButtons"]
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
-text = "バンパーダメージ +1"
+text = "バンパーを1つ獲得"
 
 [node name="MaxHpButton" type="Button" parent="UI/RewardPanel/RewardButtons"]
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
-text = "最大HP +5"
+text = "バンパーを1つ獲得"
 
 [node name="FlipperPowerButton" type="Button" parent="UI/RewardPanel/RewardButtons"]
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
-text = "フリッパー打ち返し力 +10%"
+text = "バンパーを1つ獲得"
 
 [node name="RewardStatusLabel" type="Label" parent="UI/RewardPanel"]
 layout_mode = 0
