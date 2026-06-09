@@ -160,7 +160,7 @@ var _reward_selected_this_victory: bool = false
 var _current_reward_options: Array[String] = []
 var _reward_manager: RewardManager = RewardManager.new()
 var _pending_reward_bumper_config: Dictionary = {}
-var _is_waiting_for_pin_replacement_selection: bool = false
+var _is_waiting_for_reward_bumper_target_selection: bool = false
 var _slow_effect_multiplier: float = 1.0
 var combo_count: int = 0
 var _next_enemy_hit_bonus_damage: int = 0
@@ -382,7 +382,10 @@ func _update_pin_collision_shape(pin: Pin, collision_radius: float) -> void:
 
 func _spawn_bumpers() -> void:
 	bumpers.clear()
-	for bumper: Bumper in _field_builder.spawn_bumpers(bumpers_root, bumper_configs):
+	var spawned_bumpers: Array[Bumper] = _field_builder.spawn_bumpers(bumpers_root, bumper_configs)
+	for index: int in range(spawned_bumpers.size()):
+		var bumper: Bumper = spawned_bumpers[index]
+		bumper.set_meta("config_index", index)
 		_register_bumper(bumper)
 
 func _register_bumper(bumper: Bumper) -> void:
@@ -516,6 +519,7 @@ func replace_pin_with_bumper(slot_id: String, bumper_config: Dictionary) -> bool
 		config["slot_id"] = slot_id
 		bumper_configs.append(config.duplicate(true))
 		var bumper: Bumper = _create_bumper_from_config(config, "BumperSlot_%s" % slot_id)
+		bumper.set_meta("config_index", bumper_configs.size() - 1)
 		bumpers_root.add_child(bumper)
 		_register_bumper(bumper)
 
@@ -549,33 +553,60 @@ func _debug_replace_first_pin_with_power_bumper() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _is_waiting_for_pin_replacement_selection:
+	if not _is_waiting_for_reward_bumper_target_selection:
 		return
 	if not (event is InputEventMouseButton):
 		return
 	var mouse_button_event: InputEventMouseButton = event
 	if not mouse_button_event.pressed or mouse_button_event.button_index != MOUSE_BUTTON_LEFT:
 		return
-
-	var clicked_pin: Pin = _find_replaceable_pin_at_position(mouse_button_event.position)
-	if clicked_pin == null:
-		return
 	if _pending_reward_bumper_config.is_empty():
 		return
 
-	var succeeded: bool = replace_pin_with_bumper(clicked_pin.slot_id, _pending_reward_bumper_config)
-	if not succeeded:
+	var clicked_pin: Pin = _find_replaceable_pin_at_position(mouse_button_event.position)
+	if clicked_pin != null and replace_pin_with_bumper(clicked_pin.slot_id, _pending_reward_bumper_config):
+		_complete_reward_bumper_target_selection("バンパーを配置しました")
+		get_viewport().set_input_as_handled()
 		return
 
-	_is_waiting_for_pin_replacement_selection = false
+	var clicked_bumper: Bumper = _find_bumper_at_position(mouse_button_event.position)
+	if clicked_bumper == null:
+		return
+	var reward_bumper_type: String = str(_pending_reward_bumper_config.get("bumper_type", ""))
+	if clicked_bumper.bumper_type != reward_bumper_type:
+		reward_status_label.text = "異なる種類のバンパーには配置できません"
+		return
+	if not _level_up_bumper(clicked_bumper):
+		reward_status_label.text = "最大LvのバンパーはLvアップできません"
+		return
+	_complete_reward_bumper_target_selection("同種バンパーを重ねてLvアップしました")
+	get_viewport().set_input_as_handled()
+
+func _complete_reward_bumper_target_selection(result_text: String) -> void:
+	_is_waiting_for_reward_bumper_target_selection = false
 	_pending_reward_bumper_config = {}
-	reward_status_label.text = "バンパーを配置しました"
+	reward_status_label.text = result_text
 	for button: Button in reward_option_buttons:
 		button.disabled = true
 	reward_header_label.text = "次ステージ（仮）へ進みます"
 	_start_next_battle_placeholder()
-	get_viewport().set_input_as_handled()
 
+func _level_up_bumper(bumper: Bumper) -> bool:
+	if not bumper.level_up():
+		return false
+	var config_index: int = int(bumper.get_meta("config_index", -1))
+	if config_index >= 0 and config_index < bumper_configs.size():
+		var config: Dictionary = bumper_configs[config_index]
+		config["level"] = bumper.level
+		bumper_configs[config_index] = config
+	return true
+
+func _find_bumper_at_position(screen_position: Vector2) -> Bumper:
+	var world_position: Vector2 = get_viewport().get_canvas_transform().affine_inverse() * screen_position
+	for bumper: Bumper in bumpers:
+		if is_instance_valid(bumper) and bumper.global_position.distance_to(world_position) <= BUMPER_COLLISION_RADIUS:
+			return bumper
+	return null
 
 func _find_replaceable_pin_at_position(screen_position: Vector2) -> Pin:
 	var world_position: Vector2 = get_viewport().get_canvas_transform().affine_inverse() * screen_position
@@ -1081,7 +1112,7 @@ func _setup_reward_panel() -> void:
 
 func _show_reward_panel() -> void:
 	_reward_selected_this_victory = false
-	_is_waiting_for_pin_replacement_selection = false
+	_is_waiting_for_reward_bumper_target_selection = false
 	_pending_reward_bumper_config = {}
 	reward_panel.visible = true
 	reward_status_label.text = ""
@@ -1099,77 +1130,42 @@ func _on_reward_button_pressed(button_index: int) -> void:
 	_reward_selected_this_victory = true
 	var reward_id: String = _current_reward_options[button_index]
 	var requires_pin_selection: bool = _apply_reward(reward_id)
-	_reward_manager.increment_reward_level(reward_id)
 	reward_status_label.text = _reward_manager.get_reward_result_text(reward_id, Bumper.MAX_LEVEL)
 	for button: Button in reward_option_buttons:
 		button.disabled = true
 	if requires_pin_selection:
-		reward_header_label.text = "配置先のピンをクリックしてください"
+		reward_header_label.text = "空きPinまたは同種バンパーをクリックしてください"
 		return
 	reward_header_label.text = "次ステージ（仮）へ進みます"
 	_start_next_battle_placeholder()
 
 func _apply_reward(reward_id: String) -> bool:
-	match reward_id:
-		"normal_to_power":
-			return _apply_normal_to_power_reward()
-		"random_bumper_damage":
-			return _apply_random_bumper_damage_reward()
-		"add_heal_bumper":
-			return _apply_add_heal_bumper_reward()
-		"add_summon_ball_bumper":
-			return _apply_add_summon_ball_bumper_reward()
-		"enhance_slow":
-			return _apply_enhance_slow_reward()
-	return false
-
-func _apply_normal_to_power_reward() -> bool:
-	for config: Dictionary in bumper_configs:
-		if str(config.get("bumper_type", "normal")) == "normal":
-			config["bumper_type"] = "power"
-			break
-	return false
-
-func _apply_random_bumper_damage_reward() -> bool:
-	if bumper_configs.is_empty():
+	var bumper_type: String = _reward_manager.get_bumper_type(reward_id)
+	if bumper_type.is_empty():
 		return false
-	var random_index: int = randi() % bumper_configs.size()
-	var selected_config: Dictionary = bumper_configs[random_index]
-	var current_level: int = int(selected_config.get("level", 1))
-	selected_config["level"] = mini(current_level + 1, Bumper.MAX_LEVEL)
-	bumper_configs[random_index] = selected_config
-	return false
+	_pending_reward_bumper_config = _create_reward_bumper_config(bumper_type)
+	_is_waiting_for_reward_bumper_target_selection = true
+	return true
 
-func _apply_add_heal_bumper_reward() -> bool:
-	_pending_reward_bumper_config = {
+func _create_reward_bumper_config(bumper_type: String) -> Dictionary:
+	var config: Dictionary = {
 		"level": 1,
 		"damage": 1,
 		"impulse_strength": 130.0,
-		"bumper_type": "heal",
-		"sprite_path": "res://gazou/banper_2.png",
+		"bumper_type": bumper_type,
+		"sprite_path": "res://gazou/banper_0.png",
 		"sprite_scale": BUMPER_SPRITE_SCALE,
 	}
-	_is_waiting_for_pin_replacement_selection = true
-	return true
-
-func _apply_add_summon_ball_bumper_reward() -> bool:
-	_pending_reward_bumper_config = {
-		"level": 1,
-		"damage": 1,
-		"impulse_strength": 130.0,
-		"bumper_type": "summon_ball",
-		"assist_ball_type": AssistBall.DEFAULT_TYPE,
-		"cooldown_time": 1.2,
-		"sprite_path": "res://gazou/banper_3.png",
-		"sprite_scale": BUMPER_SPRITE_SCALE,
-	}
-	_is_waiting_for_pin_replacement_selection = true
-	return true
-
-func _apply_enhance_slow_reward() -> bool:
-	_slow_effect_multiplier += 0.25
-	_update_status_label()
-	return false
+	match bumper_type:
+		"power":
+			config["sprite_path"] = "res://gazou/banper_1.png"
+		"heal":
+			config["sprite_path"] = "res://gazou/banper_2.png"
+		"summon_ball":
+			config["assist_ball_type"] = AssistBall.DEFAULT_TYPE
+			config["cooldown_time"] = 1.2
+			config["sprite_path"] = "res://gazou/banper_3.png"
+	return config
 
 func _start_next_battle_placeholder() -> void:
 	await get_tree().create_timer(0.8).timeout
@@ -1312,7 +1308,7 @@ func _reset_battle() -> void:
 	victory_label.visible = false
 	game_over_label.visible = false
 	reward_panel.visible = false
-	_is_waiting_for_pin_replacement_selection = false
+	_is_waiting_for_reward_bumper_target_selection = false
 	_pending_reward_bumper_config = {}
 	ball.visible = true
 	ball.freeze = false
