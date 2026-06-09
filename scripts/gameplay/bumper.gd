@@ -1,6 +1,8 @@
 class_name Bumper
 extends Area2D
 
+const BumperLevelTable = preload("res://scripts/gameplay/bumper_level_table.gd")
+
 signal hit(bumper: Bumper, bumper_type: String, damage: int, ball: RigidBody2D)
 
 const HIT_SCALE: Vector2 = Vector2(1.28, 1.28)
@@ -72,7 +74,10 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 		_update_level_label()
 @export var damage: int = 1
 @export var impulse_strength: float = 130.0
-@export var bumper_type: String = "normal"
+@export var bumper_type: String = "normal":
+	set(value):
+		bumper_type = value
+		_recalculate_stats()
 @export_enum("normal", "attack", "shield", "combo", "bomb") var summon_assist_ball_type: String = "normal"
 @export var cooldown_time: float = 0.08
 
@@ -208,36 +213,13 @@ func level_up() -> bool:
 	return true
 
 func _recalculate_stats() -> void:
-	var level_index: int = level - 1
-	damage = maxi(1, int(round(base_damage * _get_damage_growth_multiplier(level_index))))
-	impulse_strength = base_impulse_strength * _get_impulse_growth_multiplier(level_index)
+	damage = maxi(1, int(round(base_damage * BumperLevelTable.get_damage_multiplier(bumper_type, level))))
+	impulse_strength = base_impulse_strength * BumperLevelTable.get_impulse_multiplier(bumper_type, level)
 
 func _update_level_label() -> void:
 	if _level_label == null:
 		return
 	_level_label.text = "Lv.%d" % level
-
-func _get_damage_growth_multiplier(level_index: int) -> float:
-	match bumper_type:
-		"power":
-			return 1.0 + (0.28 * level_index)
-		"slow":
-			return 1.0 + (0.18 * level_index)
-		"heal":
-			return 1.0 + (0.22 * level_index)
-		_:
-			return 1.0 + (0.2 * level_index)
-
-func _get_impulse_growth_multiplier(level_index: int) -> float:
-	match bumper_type:
-		"power":
-			return 1.0 + (0.12 * level_index)
-		"slow":
-			return 1.0 + (0.1 * level_index)
-		"heal":
-			return 1.0 + (0.08 * level_index)
-		_:
-			return 1.0 + (0.1 * level_index)
 
 func _apply_impulse_to_ball(ball: RigidBody2D) -> void:
 	var hit_direction: Vector2 = ball.global_position - global_position
@@ -285,11 +267,15 @@ func get_tooltip_text() -> String:
 	if bumper_type == "summon_ball":
 		var assist_description: String = str(ASSIST_BALL_EFFECT_DESCRIPTIONS.get(summon_assist_ball_type, "特殊な補助ボール。"))
 		effect_description = "%s 生成タイプ: %s（%s）" % [effect_description, summon_assist_ball_type, assist_description]
-	return "バンパー名: %s\n種別: %s\n効果: %s\nDamage: %d\nCooldown: %.2f 秒\nクールダウン中: %s" % [
+	var level_effect_description: String = BumperLevelTable.get_effect_description(bumper_type, level)
+	return "バンパー名: %s\n種別: %s / Lv.%d\nLv効果: %s\n概要: %s\nDamage: %d / 反発力: %.0f\nCooldown: %.2f 秒\nクールダウン中: %s" % [
 		display_name,
 		bumper_type,
+		level,
+		level_effect_description,
 		effect_description,
 		damage,
+		impulse_strength,
 		cooldown_time,
 		cooldown_state,
 	]
