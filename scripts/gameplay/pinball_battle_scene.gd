@@ -4,6 +4,7 @@ const StageConfig = preload("res://scripts/gameplay/stage_config.gd")
 const FieldBuilder = preload("res://scripts/gameplay/field_builder.gd")
 const RewardManager = preload("res://scripts/gameplay/reward_manager.gd")
 const AssistBall = preload("res://scripts/gameplay/assist_ball.gd")
+const BumperLevelTable = preload("res://scripts/gameplay/bumper_level_table.gd")
 const FIELD_WIDTH: float = StageConfig.FIELD_WIDTH
 const FIELD_HEIGHT: float = StageConfig.FIELD_HEIGHT
 const VIEW_WIDTH: float = StageConfig.VIEW_WIDTH
@@ -794,16 +795,17 @@ func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 		if not assist_ball.is_queued_for_deletion():
 			bumper.on_ball_entered(assist_ball)
 
-func _on_bumper_hit(bumper: Bumper, bumper_type: String, damage: int, hit_ball: RigidBody2D) -> void:
+func _on_bumper_hit(bumper: Bumper, bumper_type: String, _damage: int, hit_ball: RigidBody2D) -> void:
 	if _is_victory or _is_game_over:
 		return
-	_apply_bumper_effect(bumper_type, hit_ball, damage)
+	_apply_bumper_effect(bumper, hit_ball)
 	if hit_ball is AssistBall:
 		var assist_ball: AssistBall = hit_ball
 		if assist_ball.grants_combo_on_bumper_hit():
 			combo_count += 1
 	if bumper_type == "summon_ball":
-		_spawn_assist_ball(bumper, bumper.summon_assist_ball_type)
+		for _summon_index: int in BumperLevelTable.get_summon_ball_count(bumper.level):
+			_spawn_assist_ball(bumper, bumper.summon_assist_ball_type)
 	_update_combo_label()
 	_update_bonus_damage_label()
 
@@ -1221,38 +1223,40 @@ func _reset_combo_count() -> void:
 	combo_count = 0
 	_update_combo_label()
 
-func _apply_bumper_effect(bumper_type: String, hit_ball: RigidBody2D, bumper_damage: int) -> void:
-	match bumper_type:
+func _apply_bumper_effect(bumper: Bumper, hit_ball: RigidBody2D) -> void:
+	match bumper.bumper_type:
 		"normal":
-			combo_count += 1
+			combo_count += BumperLevelTable.get_normal_combo_gain(bumper.level)
 		"power":
-			combo_count += 2
+			combo_count += BumperLevelTable.get_power_combo_gain(bumper.level)
+			var power_amount: int = BumperLevelTable.get_power_bonus_damage(bumper.level)
 			if hit_ball is AssistBall:
 				var power_assist_ball: AssistBall = hit_ball
-				power_assist_ball.boost_attack(maxi(bumper_damage, 1))
+				power_assist_ball.boost_attack(power_amount)
 				_spawn_hit_effect(power_assist_ball.global_position)
 			else:
-				_next_enemy_hit_bonus_damage += 1
+				_next_enemy_hit_bonus_damage += power_amount
 		"heal":
+			var heal_amount: int = BumperLevelTable.get_heal_amount(bumper.level)
 			if hit_ball is AssistBall:
 				var heal_assist_ball: AssistBall = hit_ball
-				heal_assist_ball.heal(maxi(bumper_damage, 1))
+				heal_assist_ball.heal(heal_amount)
 			else:
 				if _ball_hp < _get_ball_max_hp():
-					_ball_hp += maxi(bumper_damage, 1)
+					_ball_hp += heal_amount
 					_ball_hp = mini(_ball_hp, _get_ball_max_hp())
 					ball_hp_bar.value = _ball_hp
 		"slow":
-			_apply_slow_bumper_velocity(hit_ball)
+			_apply_slow_bumper_velocity(hit_ball, BumperLevelTable.get_slow_rate(bumper.level))
 		"summon_ball":
 			combo_count += 1
 		_:
 			combo_count += 1
 
-func _apply_slow_bumper_velocity(target_ball: RigidBody2D) -> void:
+func _apply_slow_bumper_velocity(target_ball: RigidBody2D, level_slow_rate: float) -> void:
 	if target_ball == null or not is_instance_valid(target_ball):
 		return
-	var slow_rate: float = max(0.2, 0.8 - ((_slow_effect_multiplier - 1.0) * 0.15))
+	var slow_rate: float = max(0.2, level_slow_rate - ((_slow_effect_multiplier - 1.0) * 0.15))
 	var new_velocity: Vector2 = target_ball.linear_velocity * slow_rate
 	var speed: float = new_velocity.length()
 	if speed < BALL_MIN_SPEED:
