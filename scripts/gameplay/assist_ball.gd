@@ -3,6 +3,7 @@ extends RigidBody2D
 
 signal expired(assist_ball: AssistBall)
 signal exploded(assist_ball: AssistBall, explosion_position: Vector2)
+signal damaged(assist_ball: AssistBall, damage: int)
 
 const TYPE_NORMAL: String = "normal"
 const TYPE_ATTACK: String = "attack"
@@ -101,8 +102,9 @@ func _update_low_life_flash() -> void:
 
 
 func take_damage(damage: int = 1) -> void:
-	if _is_disappearing:
+	if _is_disappearing or damage <= 0:
 		return
+	damaged.emit(self, damage)
 	hp -= damage
 	if hp <= 0:
 		if is_bomb():
