@@ -14,6 +14,10 @@ const HIT_FLASH_COLOR_BY_TYPE: Dictionary = {
 	"summon_ball": Color(0.55, 1.0, 0.9, 1.0),
 }
 const MAX_LEVEL: int = 5
+const COOLDOWN_VISUAL_MODULATE: Color = Color(0.38, 0.38, 0.42, 1.0)
+const COOLDOWN_LABEL_POSITION: Vector2 = Vector2(-30.0, -23.0)
+const COOLDOWN_LABEL_SIZE: Vector2 = Vector2(60.0, 18.0)
+const COOLDOWN_LABEL_FONT_SIZE: int = 10
 
 const BUMPER_DISPLAY_NAMES: Dictionary = {
 	"normal": "Normal Bumper",
@@ -84,6 +88,9 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 var _cooldown_remaining: float = 0.0
 var _scale_tween: Tween = null
 var _flash_tween: Tween = null
+var _cooldown_label: Label = null
+var _base_visual_self_modulates: Dictionary = {}
+var _is_cooldown_visual_active: bool = false
 
 @onready var _bumper_visual: CanvasItem = get_node_or_null("BumperVisual")
 @onready var _bumper_sprite: CanvasItem = get_node_or_null("BumperSprite")
@@ -93,20 +100,73 @@ var _flash_tween: Tween = null
 func _ready() -> void:
 	_recalculate_stats()
 	_update_level_label()
+	_ensure_cooldown_label()
+	_capture_base_visual_self_modulates()
+	_update_cooldown_display()
 
 
 func _physics_process(delta: float) -> void:
 	if _cooldown_remaining > 0.0:
 		_cooldown_remaining = max(_cooldown_remaining - delta, 0.0)
+	_update_cooldown_display()
 
 func on_ball_entered(ball: RigidBody2D) -> void:
 	if _cooldown_remaining > 0.0:
 		return
 	_cooldown_remaining = cooldown_time
+	_update_cooldown_display()
 	_apply_impulse_to_ball(ball)
 	_apply_bumper_effect(ball)
 	_play_hit_feedback()
 	hit.emit(self, bumper_type, damage, ball)
+
+
+func _ensure_cooldown_label() -> void:
+	_cooldown_label = get_node_or_null("CooldownLabel") as Label
+	if _cooldown_label != null:
+		return
+	_cooldown_label = Label.new()
+	_cooldown_label.name = "CooldownLabel"
+	_cooldown_label.position = COOLDOWN_LABEL_POSITION
+	_cooldown_label.size = COOLDOWN_LABEL_SIZE
+	_cooldown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cooldown_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_cooldown_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cooldown_label.z_index = 2
+	_cooldown_label.add_theme_font_size_override("font_size", COOLDOWN_LABEL_FONT_SIZE)
+	_cooldown_label.add_theme_color_override("font_color", Color.WHITE)
+	_cooldown_label.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.05, 0.95))
+	_cooldown_label.add_theme_constant_override("outline_size", 2)
+	add_child(_cooldown_label)
+
+func _capture_base_visual_self_modulates() -> void:
+	_base_visual_self_modulates.clear()
+	for visual: CanvasItem in _get_bumper_visuals():
+		_base_visual_self_modulates[visual] = visual.self_modulate
+
+func _get_bumper_visuals() -> Array[CanvasItem]:
+	var visuals: Array[CanvasItem] = []
+	if _bumper_visual != null:
+		visuals.append(_bumper_visual)
+	if _bumper_sprite != null:
+		visuals.append(_bumper_sprite)
+	return visuals
+
+func _update_cooldown_display() -> void:
+	var is_on_cooldown: bool = _cooldown_remaining > 0.0
+	if _cooldown_label != null:
+		_cooldown_label.visible = is_on_cooldown
+		if is_on_cooldown:
+			var displayed_remaining: float = ceil(_cooldown_remaining * 10.0) / 10.0
+			_cooldown_label.text = "%.1fs" % displayed_remaining
+	if is_on_cooldown == _is_cooldown_visual_active:
+		return
+	_is_cooldown_visual_active = is_on_cooldown
+	for visual: CanvasItem in _get_bumper_visuals():
+		if is_on_cooldown:
+			visual.self_modulate = COOLDOWN_VISUAL_MODULATE
+		else:
+			visual.self_modulate = _base_visual_self_modulates.get(visual, Color.WHITE)
 
 func _apply_bumper_effect(ball: RigidBody2D) -> void:
 	match bumper_type:
@@ -261,14 +321,14 @@ func _get_hit_flash_color() -> Color:
 func get_tooltip_text() -> String:
 	var display_name: String = str(BUMPER_DISPLAY_NAMES.get(bumper_type, "Unknown Bumper"))
 	var effect_description: String = str(BUMPER_EFFECT_DESCRIPTIONS.get(bumper_type, "効果説明は未登録です。"))
-	var cooldown_state: String = "はい"
-	if _cooldown_remaining <= 0.0:
-		cooldown_state = "いいえ"
+	var cooldown_state: String = "使用可能"
+	if _cooldown_remaining > 0.0:
+		cooldown_state = "クールタイム中（残り %.2f 秒）" % _cooldown_remaining
 	if bumper_type == "summon_ball":
 		var assist_description: String = str(ASSIST_BALL_EFFECT_DESCRIPTIONS.get(summon_assist_ball_type, "特殊な補助ボール。"))
 		effect_description = "%s 生成タイプ: %s（%s）" % [effect_description, summon_assist_ball_type, assist_description]
 	var level_effect_description: String = BumperLevelTable.get_effect_description(bumper_type, level)
-	return "バンパー名: %s\n種別: %s / Lv.%d\nLv効果: %s\n概要: %s\nDamage: %d / 反発力: %.0f\nCooldown: %.2f 秒\nクールダウン中: %s" % [
+	return "バンパー名: %s\n種別: %s / Lv.%d\nLv効果: %s\n概要: %s\nDamage: %d / 反発力: %.0f\nCooldown: %.2f 秒\n現在の状態: %s" % [
 		display_name,
 		bumper_type,
 		level,
