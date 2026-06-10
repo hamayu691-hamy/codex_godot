@@ -22,6 +22,15 @@ const DAMAGE_POPUP_COLOR: Color = Color(1.0, 0.85, 0.45, 1.0)
 const DAMAGE_POPUP_FONT_SIZE: int = 20
 const PLAYER_DAMAGE_POPUP_COLOR: Color = Color(1.0, 0.2, 0.16, 1.0)
 const PLAYER_DAMAGE_POPUP_FONT_SIZE: int = 24
+const ASSIST_BALL_DAMAGE_POPUP_COLOR: Color = Color(1.0, 0.38, 0.32, 0.92)
+const ASSIST_BALL_DAMAGE_POPUP_FONT_SIZE: int = 16
+const ASSIST_BALL_DAMAGE_POPUP_OFFSET: Vector2 = Vector2(0.0, -20.0)
+const ASSIST_BALL_DAMAGE_POPUP_DURATION: float = 0.35
+const ASSIST_BALL_DAMAGE_POPUP_RISE: float = 14.0
+const ASSIST_BALL_DAMAGE_EFFECT_COLOR: Color = Color(1.0, 0.3, 0.25, 0.72)
+const ASSIST_BALL_DAMAGE_EFFECT_DURATION: float = 0.12
+const ASSIST_BALL_DAMAGE_EFFECT_START_RADIUS: float = 3.0
+const ASSIST_BALL_DAMAGE_EFFECT_END_RADIUS: float = 11.0
 const PLAYER_DAMAGE_FLASH_COLOR: Color = Color(2.4, 0.12, 0.12, 1.0)
 const PLAYER_DAMAGE_FLASH_STEP_DURATION: float = 0.055
 const PLAYER_DAMAGE_HP_BAR_COLOR: Color = Color(2.5, 0.18, 0.18, 1.0)
@@ -865,6 +874,7 @@ func _spawn_assist_ball(bumper: Bumper, assist_ball_type: String = AssistBall.DE
 	_add_assist_ball_collision(assist_ball)
 	_add_assist_ball_visual(assist_ball)
 	assist_ball.expired.connect(_on_assist_ball_expired)
+	assist_ball.damaged.connect(_on_assist_ball_damaged)
 	assist_ball.exploded.connect(_on_assist_ball_exploded)
 	assist_ball.body_entered.connect(_on_assist_ball_body_entered.bind(assist_ball))
 	assist_balls_root.add_child(assist_ball)
@@ -935,6 +945,28 @@ func _try_hit_assist_ball_with_bullet(bullet: Area2D) -> bool:
 				assist_ball.take_damage(1)
 			return true
 	return false
+
+
+func _on_assist_ball_damaged(assist_ball: AssistBall, damage: int) -> void:
+	if not is_instance_valid(assist_ball):
+		return
+	var damage_position: Vector2 = assist_ball.global_position
+	_spawn_damage_popup_at(
+		damage_position,
+		damage,
+		ASSIST_BALL_DAMAGE_POPUP_COLOR,
+		ASSIST_BALL_DAMAGE_POPUP_FONT_SIZE,
+		ASSIST_BALL_DAMAGE_POPUP_OFFSET,
+		ASSIST_BALL_DAMAGE_POPUP_DURATION,
+		ASSIST_BALL_DAMAGE_POPUP_RISE
+	)
+	_spawn_hit_effect(
+		damage_position,
+		ASSIST_BALL_DAMAGE_EFFECT_COLOR,
+		ASSIST_BALL_DAMAGE_EFFECT_DURATION,
+		ASSIST_BALL_DAMAGE_EFFECT_START_RADIUS,
+		ASSIST_BALL_DAMAGE_EFFECT_END_RADIUS
+	)
 
 
 func _on_assist_ball_exploded(_assist_ball: AssistBall, explosion_position: Vector2) -> void:
@@ -1040,19 +1072,29 @@ func _spawn_damage_popup(enemy: Enemy, damage: int) -> void:
 func _spawn_player_damage_popup(damage: int) -> void:
 	_spawn_damage_popup_at(ball.global_position, damage, PLAYER_DAMAGE_POPUP_COLOR, PLAYER_DAMAGE_POPUP_FONT_SIZE)
 
-func _spawn_damage_popup_at(world_position: Vector2, damage: int, popup_color: Color, font_size: int) -> void:
+func _spawn_damage_popup_at(
+	world_position: Vector2,
+	damage: int,
+	popup_color: Color,
+	font_size: int,
+	popup_offset: Vector2 = DAMAGE_POPUP_OFFSET,
+	duration: float = DAMAGE_POPUP_DURATION,
+	rise: float = DAMAGE_POPUP_RISE
+) -> void:
 	var popup_label: Label = Label.new()
 	popup_label.text = "-%d" % damage
 	popup_label.modulate = popup_color
 	popup_label.add_theme_font_size_override("font_size", font_size)
 	popup_label.top_level = true
 	popup_label.z_index = 20
-	popup_label.global_position = world_position + DAMAGE_POPUP_OFFSET
+	popup_label.global_position = world_position + popup_offset
 	add_child(popup_label)
 	_damage_popups.append({
 		"label": popup_label,
 		"elapsed": 0.0,
 		"start_position": popup_label.global_position,
+		"duration": duration,
+		"rise": rise,
 	})
 
 func _play_enemy_hit_flash(enemy: Enemy) -> void:
@@ -1065,7 +1107,13 @@ func _play_enemy_hit_flash(enemy: Enemy) -> void:
 	var tween: Tween = create_tween()
 	tween.tween_property(enemy_visual, "modulate", Color(1.0, 1.0, 1.0, 1.0), ENEMY_HIT_FLASH_DURATION)
 
-func _spawn_hit_effect(world_position: Vector2) -> void:
+func _spawn_hit_effect(
+	world_position: Vector2,
+	effect_color: Color = HIT_EFFECT_COLOR,
+	duration: float = HIT_EFFECT_DURATION,
+	start_radius: float = HIT_EFFECT_START_RADIUS,
+	end_radius: float = HIT_EFFECT_END_RADIUS
+) -> void:
 	var effect: Polygon2D = Polygon2D.new()
 	effect.polygon = PackedVector2Array([
 		Vector2(-1.0, -1.0),
@@ -1073,14 +1121,18 @@ func _spawn_hit_effect(world_position: Vector2) -> void:
 		Vector2(1.0, 1.0),
 		Vector2(-1.0, 1.0),
 	])
-	effect.color = HIT_EFFECT_COLOR
+	effect.color = effect_color
 	effect.top_level = true
 	effect.global_position = world_position
-	effect.scale = Vector2.ONE * HIT_EFFECT_START_RADIUS
+	effect.scale = Vector2.ONE * start_radius
 	add_child(effect)
 	_hit_effects.append({
 		"node": effect,
 		"elapsed": 0.0,
+		"duration": duration,
+		"start_radius": start_radius,
+		"end_radius": end_radius,
+		"color": effect_color,
 	})
 
 func _update_damage_popups(delta: float) -> void:
@@ -1092,9 +1144,11 @@ func _update_damage_popups(delta: float) -> void:
 			continue
 		var elapsed: float = float(popup["elapsed"]) + delta
 		popup["elapsed"] = elapsed
-		var progress: float = min(elapsed / DAMAGE_POPUP_DURATION, 1.0)
+		var duration: float = float(popup.get("duration", DAMAGE_POPUP_DURATION))
+		var rise: float = float(popup.get("rise", DAMAGE_POPUP_RISE))
+		var progress: float = min(elapsed / duration, 1.0)
 		var start_position: Vector2 = popup["start_position"]
-		popup_label.global_position = start_position + Vector2(0.0, -DAMAGE_POPUP_RISE * progress)
+		popup_label.global_position = start_position + Vector2(0.0, -rise * progress)
 		var alpha: float = 1.0 - progress
 		popup_label.modulate.a = alpha
 		_damage_popups[index] = popup
