@@ -7,6 +7,7 @@ const SE_PATHS: Dictionary = {
 	"bumper_hit": "res://assets/audio/se/bumper_hit.ogg",
 	"enemy_hit": "res://assets/audio/se/enemy_hit.ogg",
 	"enemy_defeated": "res://assets/audio/se/enemy_defeated.ogg",
+	"player_damage": "res://assets/audio/se/player_damage.ogg",
 	"assist_ball_spawn": "res://assets/audio/se/assist_ball_spawn.ogg",
 	"bomb_explosion": "res://assets/audio/se/bomb_explosion.ogg",
 	"reward_select": "res://assets/audio/se/reward_select.ogg",

@@ -20,6 +20,15 @@ const DAMAGE_POPUP_RISE: float = 24.0
 const DAMAGE_POPUP_OFFSET: Vector2 = Vector2(0.0, -34.0)
 const DAMAGE_POPUP_COLOR: Color = Color(1.0, 0.85, 0.45, 1.0)
 const DAMAGE_POPUP_FONT_SIZE: int = 20
+const PLAYER_DAMAGE_POPUP_COLOR: Color = Color(1.0, 0.2, 0.16, 1.0)
+const PLAYER_DAMAGE_POPUP_FONT_SIZE: int = 24
+const PLAYER_DAMAGE_FLASH_COLOR: Color = Color(2.4, 0.12, 0.12, 1.0)
+const PLAYER_DAMAGE_FLASH_STEP_DURATION: float = 0.055
+const PLAYER_DAMAGE_HP_BAR_COLOR: Color = Color(2.5, 0.18, 0.18, 1.0)
+const PLAYER_DAMAGE_HP_BAR_PULSE_SCALE: Vector2 = Vector2(1.2, 1.45)
+const PLAYER_DAMAGE_HP_BAR_PULSE_DURATION: float = 0.09
+const PLAYER_DAMAGE_SHAKE_STRENGTH: float = 7.0
+const PLAYER_DAMAGE_SHAKE_STEP_DURATION: float = 0.035
 const ENEMY_HIT_FLASH_DURATION: float = 0.11
 const ENEMY_HIT_FLASH_COLOR: Color = Color(2.6, 2.6, 2.6, 1.0)
 const HIT_EFFECT_DURATION: float = 0.2
@@ -170,6 +179,10 @@ var _bullet_fire_elapsed: float = 0.0
 var _hovered_bumper: Bumper = null
 var _ball_collision_radius: float = BALL_SPRITE_TARGET_DIAMETER * 0.5
 var _field_builder: FieldBuilder
+var _player_damage_flash_tween: Tween
+var _player_damage_hp_bar_tween: Tween
+var _player_damage_shake_tween: Tween
+var _ball_visual_base_modulates: Dictionary = {}
 
 func _ready() -> void:
 	_load_stage_config("stage_01")
@@ -356,6 +369,7 @@ func _setup_ball_hp_bar() -> void:
 	ball_hp_bar.show_percentage = false
 	ball_hp_bar.position = BALL_HP_BAR_OFFSET
 	ball_hp_bar.size = BALL_HP_BAR_SIZE
+	ball_hp_bar.pivot_offset = BALL_HP_BAR_SIZE * 0.5
 
 
 func _spawn_pins() -> void:
@@ -1021,12 +1035,19 @@ func _on_enemy_defeated(_enemy: Enemy) -> void:
 func _spawn_damage_popup(enemy: Enemy, damage: int) -> void:
 	if not is_instance_valid(enemy):
 		return
+	_spawn_damage_popup_at(enemy.global_position, damage, DAMAGE_POPUP_COLOR, DAMAGE_POPUP_FONT_SIZE)
+
+func _spawn_player_damage_popup(damage: int) -> void:
+	_spawn_damage_popup_at(ball.global_position, damage, PLAYER_DAMAGE_POPUP_COLOR, PLAYER_DAMAGE_POPUP_FONT_SIZE)
+
+func _spawn_damage_popup_at(world_position: Vector2, damage: int, popup_color: Color, font_size: int) -> void:
 	var popup_label: Label = Label.new()
 	popup_label.text = "-%d" % damage
-	popup_label.modulate = DAMAGE_POPUP_COLOR
-	popup_label.add_theme_font_size_override("font_size", DAMAGE_POPUP_FONT_SIZE)
+	popup_label.modulate = popup_color
+	popup_label.add_theme_font_size_override("font_size", font_size)
 	popup_label.top_level = true
-	popup_label.global_position = enemy.global_position + DAMAGE_POPUP_OFFSET
+	popup_label.z_index = 20
+	popup_label.global_position = world_position + DAMAGE_POPUP_OFFSET
 	add_child(popup_label)
 	_damage_popups.append({
 		"label": popup_label,
@@ -1280,8 +1301,61 @@ func _damage_ball(damage: int) -> void:
 		return
 	_ball_hp -= damage
 	ball_hp_bar.value = max(_ball_hp, 0)
+	_play_player_damage_feedback(damage)
 	if _ball_hp <= 0:
 		_destroy_ball()
+
+func _play_player_damage_feedback(damage: int) -> void:
+	audio_manager.play_se("player_damage")
+	_spawn_player_damage_popup(damage)
+	_play_player_damage_flash()
+	_play_ball_hp_bar_damage_pulse()
+	_play_player_damage_camera_shake()
+
+func _play_player_damage_flash() -> void:
+	if _player_damage_flash_tween != null and _player_damage_flash_tween.is_valid():
+		_player_damage_flash_tween.kill()
+	var visuals: Array[CanvasItem] = _get_main_ball_visuals()
+	if visuals.is_empty():
+		return
+	_player_damage_flash_tween = create_tween().set_parallel(true)
+	for visual: CanvasItem in visuals:
+		if not _ball_visual_base_modulates.has(visual):
+			_ball_visual_base_modulates[visual] = visual.modulate
+		visual.modulate = PLAYER_DAMAGE_FLASH_COLOR
+		_player_damage_flash_tween.tween_property(visual, "modulate", _ball_visual_base_modulates[visual], PLAYER_DAMAGE_FLASH_STEP_DURATION)
+	_player_damage_flash_tween.chain()
+	for visual: CanvasItem in visuals:
+		_player_damage_flash_tween.tween_property(visual, "modulate", PLAYER_DAMAGE_FLASH_COLOR, PLAYER_DAMAGE_FLASH_STEP_DURATION)
+	_player_damage_flash_tween.chain()
+	for visual: CanvasItem in visuals:
+		_player_damage_flash_tween.tween_property(visual, "modulate", _ball_visual_base_modulates[visual], PLAYER_DAMAGE_FLASH_STEP_DURATION)
+
+func _get_main_ball_visuals() -> Array[CanvasItem]:
+	var visuals: Array[CanvasItem] = []
+	for node_name: String in ["BallSprite", "BallVisual", "MainBallRing", "MainBallMarker"]:
+		var visual: CanvasItem = ball.get_node_or_null(node_name) as CanvasItem
+		if visual != null and visual.visible:
+			visuals.append(visual)
+	return visuals
+
+func _play_ball_hp_bar_damage_pulse() -> void:
+	if _player_damage_hp_bar_tween != null and _player_damage_hp_bar_tween.is_valid():
+		_player_damage_hp_bar_tween.kill()
+	ball_hp_bar.self_modulate = PLAYER_DAMAGE_HP_BAR_COLOR
+	ball_hp_bar.scale = PLAYER_DAMAGE_HP_BAR_PULSE_SCALE
+	_player_damage_hp_bar_tween = create_tween().set_parallel(true)
+	_player_damage_hp_bar_tween.tween_property(ball_hp_bar, "self_modulate", Color.WHITE, PLAYER_DAMAGE_HP_BAR_PULSE_DURATION * 2.0)
+	_player_damage_hp_bar_tween.tween_property(ball_hp_bar, "scale", Vector2.ONE, PLAYER_DAMAGE_HP_BAR_PULSE_DURATION * 2.0).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _play_player_damage_camera_shake() -> void:
+	if _player_damage_shake_tween != null and _player_damage_shake_tween.is_valid():
+		_player_damage_shake_tween.kill()
+	game_camera.offset = Vector2(PLAYER_DAMAGE_SHAKE_STRENGTH, -PLAYER_DAMAGE_SHAKE_STRENGTH * 0.5)
+	_player_damage_shake_tween = create_tween()
+	_player_damage_shake_tween.tween_property(game_camera, "offset", Vector2(-PLAYER_DAMAGE_SHAKE_STRENGTH, PLAYER_DAMAGE_SHAKE_STRENGTH * 0.5), PLAYER_DAMAGE_SHAKE_STEP_DURATION)
+	_player_damage_shake_tween.tween_property(game_camera, "offset", Vector2(PLAYER_DAMAGE_SHAKE_STRENGTH * 0.5, PLAYER_DAMAGE_SHAKE_STRENGTH * 0.25), PLAYER_DAMAGE_SHAKE_STEP_DURATION)
+	_player_damage_shake_tween.tween_property(game_camera, "offset", Vector2.ZERO, PLAYER_DAMAGE_SHAKE_STEP_DURATION)
 
 func _destroy_ball() -> void:
 	if not _is_ball_alive:
@@ -1339,7 +1413,19 @@ func _reset_battle() -> void:
 		if is_instance_valid(effect_node):
 			effect_node.queue_free()
 	_hit_effects.clear()
+	_reset_player_damage_feedback()
 	reset_ball()
+
+func _reset_player_damage_feedback() -> void:
+	for tween: Tween in [_player_damage_flash_tween, _player_damage_hp_bar_tween, _player_damage_shake_tween]:
+		if tween != null and tween.is_valid():
+			tween.kill()
+	for visual: CanvasItem in _get_main_ball_visuals():
+		if _ball_visual_base_modulates.has(visual):
+			visual.modulate = _ball_visual_base_modulates[visual]
+	ball_hp_bar.self_modulate = Color.WHITE
+	ball_hp_bar.scale = Vector2.ONE
+	game_camera.offset = Vector2.ZERO
 
 func _process(delta: float) -> void:
 	if _hovered_bumper != null:
