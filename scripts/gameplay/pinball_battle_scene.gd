@@ -117,6 +117,7 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var walls_root: Node2D = $Walls
 @onready var bullets_root: Node2D = $Bullets
 @onready var assist_balls_root: Node2D = $AssistBalls
+@onready var audio_manager: AudioManager = $AudioManager
 @onready var game_camera: Camera2D = $GameCamera
 @onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
 @onready var enemy_hp_label: Label = $UI/EnemyHpLabel
@@ -595,6 +596,7 @@ func _complete_reward_bumper_target_selection(result_text: String) -> void:
 func _level_up_bumper(bumper: Bumper) -> bool:
 	if not bumper.level_up():
 		return false
+	audio_manager.play_se("bumper_level_up")
 	var config_index: int = int(bumper.get_meta("config_index", -1))
 	if config_index >= 0 and config_index < bumper_configs.size():
 		var config: Dictionary = bumper_configs[config_index]
@@ -798,6 +800,7 @@ func _on_bumper_body_entered(body: Node2D, bumper: Bumper) -> void:
 func _on_bumper_hit(bumper: Bumper, bumper_type: String, _damage: int, hit_ball: RigidBody2D) -> void:
 	if _is_victory or _is_game_over:
 		return
+	audio_manager.play_se("bumper_hit")
 	_apply_bumper_effect(bumper, hit_ball)
 	if hit_ball is AssistBall:
 		var assist_ball: AssistBall = hit_ball
@@ -851,6 +854,7 @@ func _spawn_assist_ball(bumper: Bumper, assist_ball_type: String = AssistBall.DE
 	assist_ball.exploded.connect(_on_assist_ball_exploded)
 	assist_ball.body_entered.connect(_on_assist_ball_body_entered.bind(assist_ball))
 	assist_balls_root.add_child(assist_ball)
+	audio_manager.play_se("assist_ball_spawn")
 	_update_assist_balls_label()
 	var random_x: float = randf_range(-ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X, ASSIST_BALL_SPAWN_IMPULSE_RANDOM_X)
 	assist_ball.apply_central_impulse(ASSIST_BALL_SPAWN_IMPULSE_BASE + Vector2(random_x, 0.0))
@@ -929,6 +933,7 @@ func _on_assist_ball_expired(_assist_ball: AssistBall) -> void:
 
 
 func _apply_bomb_explosion(explosion_position: Vector2, source_assist_ball: AssistBall) -> void:
+	audio_manager.play_se("bomb_explosion")
 	_spawn_bomb_explosion_effect(explosion_position)
 	for enemy: Enemy in enemies:
 		if not is_instance_valid(enemy):
@@ -1002,12 +1007,14 @@ func _clear_assist_balls() -> void:
 	call_deferred("_update_assist_balls_label")
 
 func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
+	audio_manager.play_se("enemy_hit")
 	_update_enemy_hp_label()
 	_spawn_damage_popup(enemy, damage)
 	_play_enemy_hit_flash(enemy)
 	_spawn_hit_effect(enemy.global_position)
 
 func _on_enemy_defeated(_enemy: Enemy) -> void:
+	audio_manager.play_se("enemy_defeated")
 	_update_enemy_hp_label()
 	_enter_victory_state()
 
@@ -1098,6 +1105,7 @@ func _update_hit_effects(delta: float) -> void:
 
 func _enter_victory_state() -> void:
 	_is_victory = true
+	audio_manager.play_se("victory")
 	_clear_assist_balls()
 	ball.sleeping = true
 	ball.linear_velocity = Vector2.ZERO
@@ -1130,6 +1138,7 @@ func _on_reward_button_pressed(button_index: int) -> void:
 	if button_index < 0 or button_index >= _current_reward_options.size():
 		return
 	_reward_selected_this_victory = true
+	audio_manager.play_se("reward_select")
 	var reward_id: String = _current_reward_options[button_index]
 	var requires_pin_selection: bool = _apply_reward(reward_id)
 	reward_status_label.text = _reward_manager.get_reward_result_text(reward_id, Bumper.MAX_LEVEL)
@@ -1286,6 +1295,7 @@ func _destroy_ball() -> void:
 
 func _enter_game_over_state() -> void:
 	_is_game_over = true
+	audio_manager.play_se("game_over")
 	_clear_assist_balls()
 	game_over_label.visible = true
 
