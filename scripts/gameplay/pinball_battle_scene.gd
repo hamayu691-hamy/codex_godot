@@ -59,6 +59,7 @@ const BUMPER_VISUAL_COLOR_BY_TYPE: Dictionary = {
 	"power": Color(0.95, 0.45, 0.35, 1.0),
 	"heal": Color(0.35, 0.9, 0.45, 1.0),
 	"slow": Color(0.45, 0.55, 0.95, 1.0),
+	"aim": Color(0.65, 0.4, 0.95, 1.0),
 	"charge": Color(0.9, 0.85, 0.3, 1.0),
 	"critical": Color(0.95, 0.3, 0.6, 1.0),
 	"pierce": Color(0.7, 0.7, 0.78, 1.0),
@@ -1332,10 +1333,51 @@ func _apply_bumper_effect(bumper: Bumper, hit_ball: RigidBody2D) -> void:
 					ball_hp_bar.value = _ball_hp
 		"slow":
 			_apply_slow_bumper_velocity(hit_ball, BumperLevelTable.get_slow_rate(bumper.level))
+		"aim":
+			combo_count += 1
+			_apply_aim_bumper_effect(bumper, hit_ball)
 		"summon_ball":
 			combo_count += 1
 		_:
 			combo_count += 1
+
+func _apply_aim_bumper_effect(bumper: Bumper, target_ball: RigidBody2D) -> void:
+	if _is_victory or _is_game_over:
+		return
+	if target_ball == null or not is_instance_valid(target_ball):
+		return
+	var nearest_enemy: Enemy = _find_nearest_alive_enemy(target_ball.global_position)
+	if nearest_enemy == null:
+		return
+	var aim_direction: Vector2 = nearest_enemy.global_position - target_ball.global_position
+	if aim_direction.length_squared() <= 0.0001:
+		return
+	var retained_velocity: Vector2 = target_ball.linear_velocity * BumperLevelTable.AIM_BUMPER_KEEP_VELOCITY_RATE
+	var aim_velocity: Vector2 = aim_direction.normalized() * BumperLevelTable.get_aim_bumper_force(bumper.level)
+	target_ball.linear_velocity = retained_velocity + aim_velocity
+	_cap_target_ball_speed(target_ball)
+
+func _find_nearest_alive_enemy(from_position: Vector2) -> Enemy:
+	var nearest_enemy: Enemy = null
+	var nearest_distance_squared: float = INF
+	for child: Node in enemies_root.get_children():
+		var enemy: Enemy = child as Enemy
+		if enemy == null or not is_instance_valid(enemy) or enemy.current_hp <= 0:
+			continue
+		var distance_squared: float = from_position.distance_squared_to(enemy.global_position)
+		if distance_squared < nearest_distance_squared:
+			nearest_distance_squared = distance_squared
+			nearest_enemy = enemy
+	return nearest_enemy
+
+func _cap_target_ball_speed(target_ball: RigidBody2D) -> void:
+	var max_speed: float = BALL_MAX_SPEED
+	if target_ball is AssistBall:
+		var assist_ball: AssistBall = target_ball
+		max_speed = assist_ball.max_speed
+	var speed: float = target_ball.linear_velocity.length()
+	if speed > max_speed and speed > 0.0:
+		target_ball.linear_velocity = target_ball.linear_velocity.normalized() * max_speed
 
 func _apply_slow_bumper_velocity(target_ball: RigidBody2D, level_slow_rate: float) -> void:
 	if target_ball == null or not is_instance_valid(target_ball):

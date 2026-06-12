@@ -11,6 +11,7 @@ const HIT_FLASH_COLOR_BY_TYPE: Dictionary = {
 	"power": Color(1.0, 0.65, 0.5, 1.0),
 	"heal": Color(0.6, 1.0, 0.65, 1.0),
 	"slow": Color(0.6, 0.7, 1.0, 1.0),
+	"aim": Color(0.75, 0.55, 1.0, 1.0),
 	"summon_ball": Color(0.55, 1.0, 0.9, 1.0),
 }
 const MAX_LEVEL: int = 5
@@ -24,6 +25,7 @@ const BUMPER_DISPLAY_NAMES: Dictionary = {
 	"power": "Power Bumper",
 	"heal": "Heal Bumper",
 	"slow": "Slow Bumper",
+	"aim": "Aim Bumper",
 	"charge": "Charge Bumper",
 	"critical": "Critical Bumper",
 	"pierce": "Pierce Bumper",
@@ -53,6 +55,7 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 	"power": "次回の敵ヒットダメージ増加や補助ボールの攻撃力強化を狙う攻撃補助。",
 	"heal": "メインボールや補助ボールのHP回復に関わる効果。",
 	"slow": "敵や弾などの行動速度低下を狙う効果。",
+	"aim": "ヒットした玉の現在速度を少し残し、最も近い生存中の敵へ向けて吹き飛ばす。",
 	"charge": "チャージ系の蓄積や解放に関わる効果。",
 	"critical": "クリティカル関連の強化効果。",
 	"pierce": "貫通系の補助効果。",
@@ -176,6 +179,8 @@ func _apply_bumper_effect(ball: RigidBody2D) -> void:
 			_apply_heal_bumper_effect(ball)
 		"slow":
 			_apply_slow_bumper_effect(ball)
+		"aim":
+			_apply_aim_bumper_effect(ball)
 		"charge":
 			_apply_charge_bumper_effect(ball)
 		"power":
@@ -222,6 +227,10 @@ func _apply_heal_bumper_effect(_ball: RigidBody2D) -> void:
 	pass
 
 func _apply_slow_bumper_effect(_ball: RigidBody2D) -> void:
+	pass
+
+func _apply_aim_bumper_effect(_ball: RigidBody2D) -> void:
+	# 敵の探索を管理する戦闘シーン側で速度補正を適用する
 	pass
 
 func _apply_charge_bumper_effect(_ball: RigidBody2D) -> void:
