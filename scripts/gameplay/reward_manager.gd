@@ -6,6 +6,7 @@ const REWARD_OPTION_IDS: Array[String] = [
 	"add_power_bumper",
 	"add_heal_bumper",
 	"add_slow_bumper",
+	"add_aim_bumper",
 	"add_summon_ball_bumper",
 ]
 
@@ -14,6 +15,7 @@ const BUMPER_TYPE_BY_REWARD_ID: Dictionary = {
 	"add_power_bumper": "power",
 	"add_heal_bumper": "heal",
 	"add_slow_bumper": "slow",
+	"add_aim_bumper": "aim",
 	"add_summon_ball_bumper": "summon_ball",
 }
 
