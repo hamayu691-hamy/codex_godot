@@ -1335,13 +1335,13 @@ func _apply_bumper_effect(bumper: Bumper, hit_ball: RigidBody2D) -> void:
 			_apply_slow_bumper_velocity(hit_ball, BumperLevelTable.get_slow_rate(bumper.level))
 		"aim":
 			combo_count += 1
-			_apply_aim_bumper_effect(hit_ball)
+			_apply_aim_bumper_effect(bumper, hit_ball)
 		"summon_ball":
 			combo_count += 1
 		_:
 			combo_count += 1
 
-func _apply_aim_bumper_effect(target_ball: RigidBody2D) -> void:
+func _apply_aim_bumper_effect(bumper: Bumper, target_ball: RigidBody2D) -> void:
 	if _is_victory or _is_game_over:
 		return
 	if target_ball == null or not is_instance_valid(target_ball):
@@ -1353,7 +1353,8 @@ func _apply_aim_bumper_effect(target_ball: RigidBody2D) -> void:
 	if aim_direction.length_squared() <= 0.0001:
 		return
 	var current_speed: float = target_ball.linear_velocity.length()
-	target_ball.linear_velocity = aim_direction.normalized() * current_speed
+	var aimed_speed: float = current_speed + BumperLevelTable.get_aim_bumper_speed_bonus(bumper.level)
+	target_ball.linear_velocity = aim_direction.normalized() * aimed_speed
 	_cap_target_ball_speed(target_ball)
 
 func _find_nearest_alive_enemy(from_position: Vector2) -> Enemy:
