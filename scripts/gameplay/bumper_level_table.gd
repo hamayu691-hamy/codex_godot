@@ -24,9 +24,6 @@ const POWER_BONUS_DAMAGE: Array[int] = [1, 2, 3, 4, 5]
 const HEAL_AMOUNTS: Array[int] = [1, 2, 3, 4, 5]
 const SLOW_RATES: Array[float] = [0.8, 0.72, 0.64, 0.56, 0.48]
 const SUMMON_BALL_COUNTS: Array[int] = [1, 1, 1, 2, 2]
-const AIM_BUMPER_BASE_FORCE: float = 520.0
-const AIM_BUMPER_LEVEL_FORCE_BONUS: float = 80.0
-const AIM_BUMPER_KEEP_VELOCITY_RATE: float = 0.35
 
 
 static func get_damage_multiplier(bumper_type: String, level: int) -> float:
@@ -61,10 +58,6 @@ static func get_summon_ball_count(level: int) -> int:
 	return SUMMON_BALL_COUNTS[_get_level_index(level)]
 
 
-static func get_aim_bumper_force(level: int) -> float:
-	return AIM_BUMPER_BASE_FORCE + (AIM_BUMPER_LEVEL_FORCE_BONUS * _get_level_index(level))
-
-
 static func get_effect_description(bumper_type: String, level: int) -> String:
 	match bumper_type:
 		"normal":
@@ -78,7 +71,7 @@ static func get_effect_description(bumper_type: String, level: int) -> String:
 		"summon_ball":
 			return "設定タイプの補助ボールを %d 体生成 / コンボ +1" % get_summon_ball_count(level)
 		"aim":
-			return "最寄りの生存中の敵方向へ吹き飛ばす（補正力 %.0f）" % get_aim_bumper_force(level)
+			return "速度を維持したまま最寄りの生存中の敵方向へ向きを変える"
 		_:
 			return "基本効果（Damageと反発力がLvに応じて上昇）"
 
