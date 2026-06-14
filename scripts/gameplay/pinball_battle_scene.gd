@@ -1086,9 +1086,10 @@ func _start_stage_clear_sequence(defeated_enemy: Enemy) -> void:
 	_is_victory = true
 	_stage_clear_sequence_id += 1
 	var sequence_id: int = _stage_clear_sequence_id
+	var focus_enemy: Enemy = _get_stage_clear_focus_enemy(defeated_enemy)
 	var defeated_position: Vector2 = game_camera.global_position
-	if is_instance_valid(defeated_enemy):
-		defeated_position = defeated_enemy.global_position
+	if focus_enemy != null:
+		defeated_position = focus_enemy.global_position
 
 	Engine.time_scale = CLEAR_SLOW_TIME_SCALE
 	ball.sleeping = true
@@ -1113,6 +1114,22 @@ func _start_stage_clear_sequence(defeated_enemy: Enemy) -> void:
 		return
 	_restore_stage_clear_state()
 	_enter_victory_state()
+
+func _get_stage_clear_focus_enemy(defeated_enemy: Enemy) -> Enemy:
+	var focus_enemy: Enemy = null
+	var lowest_instance_id: int = 0
+	for enemy: Enemy in enemies:
+		if not is_instance_valid(enemy) or enemy.current_hp <= 0:
+			continue
+		var instance_id: int = enemy.get_instance_id()
+		if focus_enemy == null or instance_id < lowest_instance_id:
+			focus_enemy = enemy
+			lowest_instance_id = instance_id
+	if focus_enemy != null:
+		return focus_enemy
+	if is_instance_valid(defeated_enemy):
+		return defeated_enemy
+	return null
 
 func _spawn_damage_popup(enemy: Enemy, damage: int) -> void:
 	if not is_instance_valid(enemy):
