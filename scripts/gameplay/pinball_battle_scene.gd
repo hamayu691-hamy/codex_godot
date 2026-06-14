@@ -44,6 +44,13 @@ const HIT_EFFECT_DURATION: float = 0.2
 const HIT_EFFECT_START_RADIUS: float = 6.0
 const HIT_EFFECT_END_RADIUS: float = 20.0
 const HIT_EFFECT_COLOR: Color = Color(1.0, 0.95, 0.7, 0.9)
+const CLEAR_SLOW_TIME_SCALE: float = 0.35
+const CLEAR_SLOW_DURATION: float = 0.8
+const CLEAR_CAMERA_ZOOM: Vector2 = Vector2(1.25, 1.25)
+const CLEAR_CAMERA_FOCUS_DURATION: float = 0.8
+const CLEAR_REWARD_DELAY: float = 0.3
+const CLEAR_EFFECT_COLOR: Color = Color(1.0, 0.85, 0.25, 0.95)
+const CLEAR_EFFECT_END_RADIUS: float = 70.0
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
 const ENEMY_HP_INITIAL: int = 20
@@ -171,6 +178,7 @@ var background_color: Color = DEFAULT_BACKGROUND_COLOR
 var _flippers: Array[Dictionary] = []
 var _ball_hp: int = BALL_HP_INITIAL
 var _is_victory: bool = false
+var _is_stage_clearing: bool = false
 var _is_game_over: bool = false
 var _debug_enemy_zero_hp_key_was_down: bool = false
 var _debug_replace_pin_key_was_down: bool = false
@@ -193,6 +201,8 @@ var _player_damage_flash_tween: Tween
 var _player_damage_hp_bar_tween: Tween
 var _player_damage_shake_tween: Tween
 var _ball_visual_base_modulates: Dictionary = {}
+var _stage_clear_sequence_id: int = 0
+var _camera_default_zoom: Vector2 = Vector2.ONE
 
 func _ready() -> void:
 	_load_stage_config("stage_01")
@@ -219,6 +229,9 @@ func _ready() -> void:
 	victory_label.visible = false
 	game_over_label.visible = false
 	_reset_battle()
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
 
 func _load_stage_config(stage_id: String) -> void:
 	var stage_data: Dictionary = StageConfig.get_stage_data(stage_id)
@@ -349,6 +362,7 @@ func _setup_camera() -> void:
 	game_camera.limit_right = int(FIELD_WIDTH)
 	game_camera.limit_bottom = int(FIELD_HEIGHT)
 	game_camera.global_position = BALL_START_POSITION
+	_camera_default_zoom = game_camera.zoom
 
 func _on_bumper_mouse_entered(bumper: Bumper) -> void:
 	_hovered_bumper = bumper
@@ -691,7 +705,7 @@ func _physics_process(delta: float) -> void:
 	_update_hit_effects(delta)
 
 func _update_camera_follow(delta: float) -> void:
-	if not is_instance_valid(ball):
+	if not is_instance_valid(ball) or _is_stage_clearing:
 		return
 	var follow_strength: float = clamp(delta * 3.0, 0.0, 1.0)
 	game_camera.global_position = game_camera.global_position.lerp(ball.global_position, follow_strength)
@@ -1060,9 +1074,44 @@ func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 	_play_enemy_hit_flash(enemy)
 	_spawn_hit_effect(enemy.global_position)
 
-func _on_enemy_defeated(_enemy: Enemy) -> void:
+func _on_enemy_defeated(enemy: Enemy) -> void:
 	audio_manager.play_se("enemy_defeated")
 	_update_enemy_hp_label()
+	_start_stage_clear_sequence(enemy)
+
+func _start_stage_clear_sequence(defeated_enemy: Enemy) -> void:
+	if _is_victory or _is_stage_clearing or _is_game_over:
+		return
+	_is_stage_clearing = true
+	_is_victory = true
+	_stage_clear_sequence_id += 1
+	var sequence_id: int = _stage_clear_sequence_id
+	var defeated_position: Vector2 = game_camera.global_position
+	if is_instance_valid(defeated_enemy):
+		defeated_position = defeated_enemy.global_position
+
+	Engine.time_scale = CLEAR_SLOW_TIME_SCALE
+	ball.sleeping = true
+	ball.linear_velocity = Vector2.ZERO
+	ball.angular_velocity = 0.0
+	_clear_assist_balls()
+	for child: Node in bullets_root.get_children():
+		child.queue_free()
+	_spawn_hit_effect(defeated_position, CLEAR_EFFECT_COLOR, CLEAR_SLOW_DURATION, HIT_EFFECT_START_RADIUS, CLEAR_EFFECT_END_RADIUS)
+
+	var camera_tween: Tween = create_tween().set_parallel(true).set_ignore_time_scale(true)
+	camera_tween.tween_property(game_camera, "global_position", defeated_position, CLEAR_CAMERA_FOCUS_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	camera_tween.tween_property(game_camera, "zoom", CLEAR_CAMERA_ZOOM, CLEAR_CAMERA_FOCUS_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+	await get_tree().create_timer(CLEAR_SLOW_DURATION, true, false, true).timeout
+	if sequence_id != _stage_clear_sequence_id or not _is_stage_clearing:
+		return
+	victory_label.visible = true
+	audio_manager.play_se("victory")
+	await get_tree().create_timer(CLEAR_REWARD_DELAY, true, false, true).timeout
+	if sequence_id != _stage_clear_sequence_id or not _is_stage_clearing:
+		return
+	_restore_stage_clear_state()
 	_enter_victory_state()
 
 func _spawn_damage_popup(enemy: Enemy, damage: int) -> void:
@@ -1181,7 +1230,6 @@ func _update_hit_effects(delta: float) -> void:
 
 func _enter_victory_state() -> void:
 	_is_victory = true
-	audio_manager.play_se("victory")
 	_clear_assist_balls()
 	ball.sleeping = true
 	ball.linear_velocity = Vector2.ZERO
@@ -1464,12 +1512,14 @@ func _destroy_ball() -> void:
 	_enter_game_over_state()
 
 func _enter_game_over_state() -> void:
+	_restore_stage_clear_state()
 	_is_game_over = true
 	audio_manager.play_se("game_over")
 	_clear_assist_balls()
 	game_over_label.visible = true
 
 func _reset_battle() -> void:
+	_restore_stage_clear_state()
 	_is_victory = false
 	_is_game_over = false
 	_is_ball_alive = true
@@ -1511,6 +1561,16 @@ func _reset_battle() -> void:
 	_hit_effects.clear()
 	_reset_player_damage_feedback()
 	reset_ball()
+
+func _restore_stage_clear_state() -> void:
+	_stage_clear_sequence_id += 1
+	_is_stage_clearing = false
+	Engine.time_scale = 1.0
+	if is_instance_valid(game_camera):
+		game_camera.zoom = _camera_default_zoom
+		game_camera.offset = Vector2.ZERO
+		if is_instance_valid(ball):
+			game_camera.global_position = ball.global_position
 
 func _reset_player_damage_feedback() -> void:
 	for tween: Tween in [_player_damage_flash_tween, _player_damage_hp_bar_tween, _player_damage_shake_tween]:
