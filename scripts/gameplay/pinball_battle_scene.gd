@@ -1086,10 +1086,10 @@ func _start_stage_clear_sequence(defeated_enemy: Enemy) -> void:
 	_is_victory = true
 	_stage_clear_sequence_id += 1
 	var sequence_id: int = _stage_clear_sequence_id
-	var focus_enemy: Enemy = _get_stage_clear_focus_enemy(defeated_enemy)
 	var defeated_position: Vector2 = game_camera.global_position
-	if focus_enemy != null:
-		defeated_position = focus_enemy.global_position
+	if is_instance_valid(defeated_enemy):
+		defeated_position = defeated_enemy.global_position
+		defeated_enemy.play_defeat_animation()
 
 	Engine.time_scale = CLEAR_SLOW_TIME_SCALE
 	ball.sleeping = true
@@ -1114,22 +1114,6 @@ func _start_stage_clear_sequence(defeated_enemy: Enemy) -> void:
 		return
 	_restore_stage_clear_state()
 	_enter_victory_state()
-
-func _get_stage_clear_focus_enemy(defeated_enemy: Enemy) -> Enemy:
-	var focus_enemy: Enemy = null
-	var lowest_instance_id: int = 0
-	for enemy: Enemy in enemies:
-		if not is_instance_valid(enemy) or enemy.current_hp <= 0:
-			continue
-		var instance_id: int = enemy.get_instance_id()
-		if focus_enemy == null or instance_id < lowest_instance_id:
-			focus_enemy = enemy
-			lowest_instance_id = instance_id
-	if focus_enemy != null:
-		return focus_enemy
-	if is_instance_valid(defeated_enemy):
-		return defeated_enemy
-	return null
 
 func _spawn_damage_popup(enemy: Enemy, damage: int) -> void:
 	if not is_instance_valid(enemy):
@@ -1329,8 +1313,10 @@ func _get_ball_max_hp() -> int:
 
 func _update_enemy_hp_label() -> void:
 	var current_hp: int = 0
-	if enemies.size() > 0 and is_instance_valid(enemies[0]):
-		current_hp = enemies[0].current_hp
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy) and enemy.current_hp > 0:
+			current_hp = enemy.current_hp
+			break
 	if current_hp < 0:
 		current_hp = 0
 	enemy_hp_label.text = "Enemy HP: %d" % current_hp
@@ -1541,12 +1527,9 @@ func _reset_battle() -> void:
 	_is_game_over = false
 	_is_ball_alive = true
 	_spawn_bumpers()
+	_reset_enemies_for_battle()
 	_hovered_bumper = null
 	bumper_tooltip_panel.visible = false
-	for enemy: Enemy in enemies:
-		if is_instance_valid(enemy):
-			enemy.current_hp = enemy.max_hp
-			enemy.reset_attack_timer()
 	_ball_hp = _get_ball_max_hp()
 	_bullet_fire_elapsed = 0.0
 	_next_enemy_hit_bonus_damage = 0
@@ -1578,6 +1561,20 @@ func _reset_battle() -> void:
 	_hit_effects.clear()
 	_reset_player_damage_feedback()
 	reset_ball()
+
+func _reset_enemies_for_battle() -> void:
+	var valid_enemy_count: int = 0
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy) and not enemy.is_queued_for_deletion():
+			valid_enemy_count += 1
+	if valid_enemy_count != enemy_configs.size():
+		for child: Node in enemies_root.get_children():
+			child.queue_free()
+		_spawn_enemies()
+		return
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy):
+			enemy.reset_for_battle()
 
 func _restore_stage_clear_state() -> void:
 	_stage_clear_sequence_id += 1
