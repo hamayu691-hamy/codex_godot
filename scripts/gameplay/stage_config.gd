@@ -8,6 +8,20 @@ const VIEW_HEIGHT: float = 700.0
 const SLOPE_WALL_MIN_THICKNESS: float = 25.0
 const FIELD_CENTER_X: float = FIELD_WIDTH * 0.5
 
+const STAGE_ENEMY_CONFIGS: Dictionary = {
+	"stage_01": [
+		{"position": Vector2(FIELD_CENTER_X, 170.0), "enemy_type": "basic", "move_range": 260.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (40.0 / 1254.0)},
+	],
+	"stage_02": [
+		{"position": Vector2(FIELD_CENTER_X - 140.0, 165.0), "enemy_type": "swift", "move_range": 180.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (34.0 / 1254.0)},
+		{"position": Vector2(FIELD_CENTER_X + 140.0, 165.0), "enemy_type": "swift", "move_range": 180.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (34.0 / 1254.0)},
+	],
+	"stage_03": [
+		{"position": Vector2(FIELD_CENTER_X - 120.0, 165.0), "enemy_type": "tank", "move_range": 120.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (48.0 / 1254.0)},
+		{"position": Vector2(FIELD_CENTER_X + 140.0, 175.0), "enemy_type": "basic", "move_range": 180.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (40.0 / 1254.0)},
+	],
+}
+
 const STAGES: Dictionary = {
 	"stage_01": {
 		"background_sprite_path": "",
@@ -118,9 +132,7 @@ const STAGES: Dictionary = {
 			{"name": "LeftFlipper", "position": Vector2(FIELD_CENTER_X - 50.0, 640.0), "collision_offset": Vector2(45.0, 0.0), "visual_offset": Vector2(45.0, 0.0), "size": Vector2(110.0, 16.0), "rest_rotation": -0.35, "active_rotation": -1.0, "rotate_speed": 14.0, "input_key": KEY_LEFT, "side": -1.0, "hit_impulse": 1600.0, "color": Color(0.95, 0.5, 0.35, 1.0)},
 			{"name": "RightFlipper", "position": Vector2(FIELD_CENTER_X + 50.0, 640.0), "collision_offset": Vector2(-45.0, 0.0), "visual_offset": Vector2(-45.0, 0.0), "size": Vector2(110.0, 16.0), "rest_rotation": 0.35, "active_rotation": 1.0, "rotate_speed": 14.0, "input_key": KEY_RIGHT, "side": 1.0, "hit_impulse": 1600.0, "color": Color(0.95, 0.5, 0.35, 1.0)},
 		],
-		"enemy_configs": [
-			{"position": Vector2(FIELD_CENTER_X, 170.0), "max_hp": 20, "current_hp": 20, "contact_damage": 1, "move_speed": 35.0, "enemy_type": "basic", "score_value": 100, "move_axis": "horizontal", "move_range": 260.0, "attack_type": "bullet", "attack_interval": 1.1, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (40.0 / 1254.0)},
-		],
+		"enemy_configs": STAGE_ENEMY_CONFIGS["stage_01"],
 	},
 }
 
@@ -128,4 +140,12 @@ static func get_stage_data(stage_id: String = "stage_01") -> Dictionary:
 	var stage_data: Dictionary = STAGES.get(stage_id, {})
 	if stage_data.is_empty():
 		stage_data = STAGES["stage_01"]
-	return stage_data.duplicate(true)
+	var result: Dictionary = stage_data.duplicate(true)
+	result["enemy_configs"] = get_stage_enemy_configs(stage_id)
+	return result
+
+static func get_stage_enemy_configs(stage_id: String = "stage_01") -> Array:
+	var configs: Array = STAGE_ENEMY_CONFIGS.get(stage_id, [])
+	if configs.is_empty():
+		configs = STAGE_ENEMY_CONFIGS["stage_01"]
+	return configs.duplicate(true)

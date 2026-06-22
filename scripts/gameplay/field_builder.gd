@@ -149,16 +149,7 @@ func spawn_enemies(enemies_root: Node2D, enemy_configs: Array[Dictionary]) -> Ar
 		var enemy: Enemy = Enemy.new()
 		enemy.name = "Enemy%d" % (index + 1)
 		enemy.position = config.get("position", Vector2(200.0, 140.0))
-		enemy.max_hp = int(config.get("max_hp", _enemy_hp_initial))
-		enemy.current_hp = int(config.get("current_hp", enemy.max_hp))
-		enemy.contact_damage = int(config.get("contact_damage", 1))
-		enemy.move_speed = float(config.get("move_speed", 35.0))
-		enemy.enemy_type = str(config.get("enemy_type", "basic"))
-		enemy.score_value = int(config.get("score_value", 100))
-		enemy.move_axis = str(config.get("move_axis", "horizontal"))
-		enemy.move_range = float(config.get("move_range", 80.0))
-		enemy.attack_type = str(config.get("attack_type", "bullet"))
-		enemy.attack_interval = float(config.get("attack_interval", 1.1))
+		enemy.apply_config(config)
 		var collision_shape: CollisionShape2D = CollisionShape2D.new()
 		var circle_shape: CircleShape2D = CircleShape2D.new()
 		circle_shape.radius = _enemy_collision_radius
@@ -166,10 +157,13 @@ func spawn_enemies(enemies_root: Node2D, enemy_configs: Array[Dictionary]) -> Ar
 		enemy.add_child(collision_shape)
 		var enemy_visual: Polygon2D = Polygon2D.new()
 		enemy_visual.name = "EnemyVisual"
-		enemy_visual.color = _enemy_visual_color
+		enemy_visual.color = enemy.display_color
 		enemy_visual.polygon = PackedVector2Array(_bumper_visual_points)
 		enemy.add_child(enemy_visual)
 		_try_attach_sprite(enemy, config, enemy_visual, "EnemySprite")
+		var enemy_sprite: Sprite2D = enemy.get_node_or_null("EnemySprite") as Sprite2D
+		if enemy_sprite != null:
+			enemy_sprite.modulate = enemy.display_color
 		_sync_enemy_size_with_visual(enemy)
 		enemies_root.add_child(enemy)
 		spawned_enemies.append(enemy)
