@@ -14,6 +14,41 @@ signal defeated(enemy: Enemy)
 @export var move_range: float = 80.0
 @export var attack_type: String = "bullet"
 @export var attack_interval: float = 1.1
+@export var bullet_damage: int = 2
+@export var display_color: Color = Color(0.9, 0.3, 0.35, 1.0)
+
+const TYPE_BASIC: String = "basic"
+const TYPE_SWIFT: String = "swift"
+const TYPE_TANK: String = "tank"
+const ENEMY_DEFINITIONS: Dictionary = {
+	TYPE_BASIC: {
+		"max_hp": 20,
+		"move_speed": 35.0,
+		"bullet_damage": 2,
+		"attack_interval": 1.1,
+		"attack_type": "bullet",
+		"color": Color(0.9, 0.3, 0.35, 1.0),
+		"score_value": 100,
+	},
+	TYPE_SWIFT: {
+		"max_hp": 10,
+		"move_speed": 80.0,
+		"bullet_damage": 1,
+		"attack_interval": 1.8,
+		"attack_type": "bullet",
+		"color": Color(0.25, 0.75, 1.0, 1.0),
+		"score_value": 120,
+	},
+	TYPE_TANK: {
+		"max_hp": 45,
+		"move_speed": 18.0,
+		"bullet_damage": 3,
+		"attack_interval": 1.5,
+		"attack_type": "bullet",
+		"color": Color(0.75, 0.55, 0.25, 1.0),
+		"score_value": 180,
+	},
+}
 
 const ENEMY_DEFEAT_FADE_DURATION: float = 0.6
 const ENEMY_DEFEAT_SCALE_MULTIPLIER: float = 1.25
@@ -27,6 +62,30 @@ var _start_position: Vector2 = Vector2.ZERO
 var _move_direction: float = 1.0
 var _knockback_velocity: Vector2 = Vector2.ZERO
 const KNOCKBACK_DAMPING: float = 7.5
+
+static func get_definition(type_name: String) -> Dictionary:
+	var definition: Dictionary = ENEMY_DEFINITIONS.get(type_name, {})
+	if definition.is_empty():
+		definition = ENEMY_DEFINITIONS[TYPE_BASIC]
+	return definition.duplicate(true)
+
+func apply_config(config: Dictionary) -> void:
+	enemy_type = str(config.get("enemy_type", enemy_type))
+	var definition: Dictionary = get_definition(enemy_type)
+	max_hp = int(config.get("max_hp", definition.get("max_hp", max_hp)))
+	current_hp = int(config.get("current_hp", max_hp))
+	contact_damage = int(config.get("contact_damage", contact_damage))
+	move_speed = float(config.get("move_speed", definition.get("move_speed", move_speed)))
+	bullet_damage = int(config.get("bullet_damage", definition.get("bullet_damage", bullet_damage)))
+	score_value = int(config.get("score_value", definition.get("score_value", score_value)))
+	move_axis = str(config.get("move_axis", move_axis))
+	move_range = float(config.get("move_range", move_range))
+	attack_type = str(config.get("attack_type", definition.get("attack_type", attack_type)))
+	attack_interval = float(config.get("attack_interval", definition.get("attack_interval", attack_interval)))
+	display_color = config.get("color", definition.get("color", display_color))
+
+func get_display_name() -> String:
+	return enemy_type.capitalize()
 
 func _ready() -> void:
 	_start_position = global_position

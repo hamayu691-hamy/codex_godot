@@ -741,7 +741,7 @@ func _spawn_enemy_bullet(enemy: Enemy) -> void:
 	var bullet: Area2D = Area2D.new()
 	bullet.name = "EnemyBullet"
 	bullet.global_position = spawn_position
-	bullet.set_meta("damage", BULLET_DAMAGE)
+	bullet.set_meta("damage", enemy.bullet_damage)
 	bullet.collision_layer = 0
 	bullet.collision_mask = 0
 
@@ -1077,7 +1077,16 @@ func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 func _on_enemy_defeated(enemy: Enemy) -> void:
 	audio_manager.play_se("enemy_defeated")
 	_update_enemy_hp_label()
-	_start_stage_clear_sequence(enemy)
+	if _are_all_enemies_defeated():
+		_start_stage_clear_sequence(enemy)
+	elif is_instance_valid(enemy):
+		enemy.play_defeat_animation()
+
+func _are_all_enemies_defeated() -> bool:
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy) and enemy.current_hp > 0:
+			return false
+	return true
 
 func _start_stage_clear_sequence(defeated_enemy: Enemy) -> void:
 	if _is_victory or _is_stage_clearing or _is_game_over:
@@ -1312,14 +1321,14 @@ func _get_ball_max_hp() -> int:
 	return BALL_HP_INITIAL
 
 func _update_enemy_hp_label() -> void:
-	var current_hp: int = 0
+	var hp_parts: PackedStringArray = PackedStringArray()
 	for enemy: Enemy in enemies:
 		if is_instance_valid(enemy) and enemy.current_hp > 0:
-			current_hp = enemy.current_hp
-			break
-	if current_hp < 0:
-		current_hp = 0
-	enemy_hp_label.text = "Enemy HP: %d" % current_hp
+			hp_parts.append("%s HP: %d/%d" % [enemy.get_display_name(), enemy.current_hp, enemy.max_hp])
+	if hp_parts.is_empty():
+		enemy_hp_label.text = "Enemy HP: 0"
+	else:
+		enemy_hp_label.text = " | ".join(hp_parts)
 
 func _update_combo_label() -> void:
 	combo_label.text = "Combo: %d" % combo_count
