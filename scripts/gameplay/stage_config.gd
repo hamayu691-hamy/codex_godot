@@ -8,9 +8,11 @@ const VIEW_HEIGHT: float = 700.0
 const SLOPE_WALL_MIN_THICKNESS: float = 25.0
 const FIELD_CENTER_X: float = FIELD_WIDTH * 0.5
 
-const STAGE_LOOP_IDS: Array[String] = ["stage_01", "stage_boss_01"]
+const STAGE_LOOP_IDS: Array[String] = ["stage_01", "stage_02", "stage_03", "stage_boss_01"]
 const STAGE_DISPLAY_NAMES: Dictionary = {
 	"stage_01": "Stage 1",
+	"stage_02": "Stage 2",
+	"stage_03": "Stage 3",
 	"stage_boss_01": "Boss Stage",
 }
 
