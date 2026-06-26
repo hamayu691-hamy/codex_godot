@@ -202,6 +202,10 @@ var ball_config: Dictionary = {}
 var background_sprite_path: String = ""
 var background_color: Color = DEFAULT_BACKGROUND_COLOR
 
+var _stage_loop_ids: Array[String] = []
+var _current_stage_index: int = 0
+var _current_stage_id: String = "stage_01"
+
 var _flippers: Array[Dictionary] = []
 var _ball_hp: int = BALL_HP_INITIAL
 var _is_victory: bool = false
@@ -237,7 +241,12 @@ var _background_base_modulate: Color = Color.WHITE
 var _boss_message_tween: Tween
 
 func _ready() -> void:
-	_load_stage_config("stage_01")
+	_stage_loop_ids = StageConfig.get_stage_loop_ids()
+	if _stage_loop_ids.is_empty():
+		_stage_loop_ids = ["stage_01"]
+	_current_stage_index = 0
+	_current_stage_id = _stage_loop_ids[_current_stage_index]
+	_load_stage_config(_current_stage_id)
 	_field_builder = FieldBuilder.new(PIN_COLLISION_RADIUS, BUMPER_COLLISION_RADIUS, ENEMY_COLLISION_RADIUS, BUMPER_VISUAL_COLOR, BUMPER_VISUAL_COLOR_BY_TYPE, BUMPER_VISUAL_POINTS, ENEMY_VISUAL_COLOR, ENEMY_HP_INITIAL)
 	_setup_background()
 	_setup_fever_ui()
@@ -268,6 +277,7 @@ func _exit_tree() -> void:
 	Engine.time_scale = 1.0
 
 func _load_stage_config(stage_id: String) -> void:
+	_current_stage_id = stage_id
 	var stage_data: Dictionary = StageConfig.get_stage_data(stage_id)
 	wall_configs = _to_dictionary_array(stage_data.get("wall_configs", []))
 	bumper_configs = _to_dictionary_array(stage_data.get("bumper_configs", []))
@@ -670,7 +680,7 @@ func _complete_reward_bumper_target_selection(result_text: String) -> void:
 	reward_status_label.text = result_text
 	for button: Button in reward_option_buttons:
 		button.disabled = true
-	reward_header_label.text = "次ステージ（仮）へ進みます"
+	reward_header_label.text = _get_next_stage_message()
 	_start_next_battle_placeholder()
 
 func _level_up_bumper(bumper: Bumper) -> bool:
@@ -1394,7 +1404,7 @@ func _on_reward_button_pressed(button_index: int) -> void:
 	if requires_pin_selection:
 		reward_header_label.text = "空きPinまたは同種バンパーをクリックしてください"
 		return
-	reward_header_label.text = "次ステージ（仮）へ進みます"
+	reward_header_label.text = _get_next_stage_message()
 	_start_next_battle_placeholder()
 
 func _apply_reward(reward_id: String) -> bool:
@@ -1428,7 +1438,29 @@ func _create_reward_bumper_config(bumper_type: String) -> Dictionary:
 func _start_next_battle_placeholder() -> void:
 	await get_tree().create_timer(0.8).timeout
 	reward_panel.visible = false
+	_advance_to_next_stage()
 	_reset_battle()
+
+func _advance_to_next_stage() -> void:
+	if _stage_loop_ids.is_empty():
+		return
+	_current_stage_index = (_current_stage_index + 1) % _stage_loop_ids.size()
+	_current_stage_id = _stage_loop_ids[_current_stage_index]
+	_apply_stage_enemy_config(_current_stage_id)
+
+func _apply_stage_enemy_config(stage_id: String) -> void:
+	enemy_configs = _to_dictionary_array(StageConfig.get_stage_enemy_configs(stage_id))
+	for child: Node in enemies_root.get_children():
+		child.queue_free()
+	enemies.clear()
+	_update_status_label()
+
+func _get_next_stage_message() -> String:
+	if _stage_loop_ids.is_empty():
+		return "次ステージへ進みます"
+	var next_stage_index: int = (_current_stage_index + 1) % _stage_loop_ids.size()
+	var next_stage_id: String = _stage_loop_ids[next_stage_index]
+	return "%sへ進みます" % StageConfig.get_stage_display_name(next_stage_id)
 
 func _get_ball_max_hp() -> int:
 	return BALL_HP_INITIAL
@@ -1486,6 +1518,7 @@ func _update_status_label() -> void:
 	if not is_node_ready():
 		return
 	var status_lines: Array[String] = [
+		"Stage: %s" % StageConfig.get_stage_display_name(_current_stage_id),
 		"Status: %s" % _get_battle_status_text(),
 		"Combo: %d" % combo_count,
 		"Next Bonus Damage: +%d" % _next_enemy_hit_bonus_damage,
