@@ -93,6 +93,10 @@ const BUMPER_VISUAL_COLOR_BY_TYPE: Dictionary = {
 const BULLET_SPEED: float = 420.0
 const BULLET_DAMAGE: int = 2
 const BULLET_COLLISION_RADIUS: float = 7.0
+const BOSS_HP_BAR_SIZE: Vector2 = Vector2(520.0, 18.0)
+const BOSS_HP_BAR_POSITION: Vector2 = Vector2(140.0, 20.0)
+const BOSS_MESSAGE_DURATION: float = 1.2
+const BOSS_HIT_EFFECT_MULTIPLIER: float = 1.35
 const BUMPER_TOOLTIP_OFFSET: Vector2 = Vector2(16.0, 16.0)
 const BACKGROUND_Z_INDEX: int = -100
 const DEFAULT_BACKGROUND_COLOR: Color = Color(0.08, 0.1, 0.15, 1.0)
@@ -155,6 +159,8 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var game_camera: Camera2D = $GameCamera
 @onready var ball_hp_bar: ProgressBar = $Ball/BallHpBar
 @onready var enemy_hp_label: Label = $UI/EnemyHpLabel
+@onready var boss_hp_bar: ProgressBar = _create_boss_hp_bar()
+@onready var boss_message_label: Label = _create_boss_message_label()
 @onready var combo_label: Label = $UI/ComboLabel
 @onready var bonus_damage_label: Label = $UI/BonusDamageLabel
 @onready var assist_balls_label: Label = $UI/AssistBallsLabel
@@ -217,12 +223,14 @@ var _bumper_hit_count: int = 0
 var _is_fever_active: bool = false
 var _fever_remaining: float = 0.0
 var _background_base_modulate: Color = Color.WHITE
+var _boss_message_tween: Tween
 
 func _ready() -> void:
 	_load_stage_config("stage_01")
 	_field_builder = FieldBuilder.new(PIN_COLLISION_RADIUS, BUMPER_COLLISION_RADIUS, ENEMY_COLLISION_RADIUS, BUMPER_VISUAL_COLOR, BUMPER_VISUAL_COLOR_BY_TYPE, BUMPER_VISUAL_POINTS, ENEMY_VISUAL_COLOR, ENEMY_HP_INITIAL)
 	_setup_background()
 	_setup_fever_ui()
+	_setup_boss_ui()
 	_setup_ball_visual()
 	_spawn_flippers()
 	_setup_camera()
@@ -496,6 +504,7 @@ func _spawn_enemies() -> void:
 		enemy.body_entered.connect(_on_enemy_body_entered.bind(enemy))
 		enemy.hit.connect(_on_enemy_hit)
 		enemy.defeated.connect(_on_enemy_defeated)
+		enemy.phase_two_started.connect(_on_boss_phase_two_started)
 		enemies.append(enemy)
 
 func _sync_enemy_size_with_visual(enemy: Enemy) -> void:
@@ -765,22 +774,24 @@ func _spawn_enemy_bullet(enemy: Enemy) -> void:
 	bullet.name = "EnemyBullet"
 	bullet.global_position = spawn_position
 	bullet.set_meta("damage", enemy.bullet_damage)
+	bullet.set_meta("radius", enemy.bullet_radius)
 	bullet.collision_layer = 0
 	bullet.collision_mask = 0
 
 	var collision: CollisionShape2D = CollisionShape2D.new()
 	var circle_shape: CircleShape2D = CircleShape2D.new()
-	circle_shape.radius = BULLET_COLLISION_RADIUS
+	circle_shape.radius = enemy.bullet_radius
 	collision.shape = circle_shape
 	bullet.add_child(collision)
 
 	var visual: Polygon2D = Polygon2D.new()
-	visual.color = Color(1.0, 0.4, 0.35, 1.0)
+	var bullet_radius: float = enemy.bullet_radius
+	visual.color = enemy.bullet_color
 	visual.polygon = PackedVector2Array([
-		Vector2(0.0, -6.0),
-		Vector2(6.0, 0.0),
-		Vector2(0.0, 6.0),
-		Vector2(-6.0, 0.0),
+		Vector2(0.0, -bullet_radius),
+		Vector2(bullet_radius, 0.0),
+		Vector2(0.0, bullet_radius),
+		Vector2(-bullet_radius, 0.0),
 	])
 	bullet.add_child(visual)
 
@@ -977,7 +988,8 @@ func _try_hit_assist_ball_with_bullet(bullet: Area2D) -> bool:
 		var assist_ball: AssistBall = child
 		if assist_ball.is_queued_for_deletion():
 			continue
-		if bullet.global_position.distance_to(assist_ball.global_position) <= (ASSIST_BALL_COLLISION_RADIUS + BULLET_COLLISION_RADIUS):
+		var bullet_radius: float = float(bullet.get_meta("radius", BULLET_COLLISION_RADIUS))
+		if bullet.global_position.distance_to(assist_ball.global_position) <= (ASSIST_BALL_COLLISION_RADIUS + bullet_radius):
 			if assist_ball.blocks_enemy_bullet():
 				assist_ball.disappear()
 			else:
@@ -1096,11 +1108,16 @@ func _on_enemy_hit(enemy: Enemy, damage: int) -> void:
 	_update_enemy_hp_label()
 	_spawn_damage_popup(enemy, damage)
 	_play_enemy_hit_flash(enemy)
-	_spawn_hit_effect(enemy.global_position)
+	if enemy.is_boss():
+		_spawn_hit_effect(enemy.global_position, HIT_EFFECT_COLOR, HIT_EFFECT_DURATION * BOSS_HIT_EFFECT_MULTIPLIER, HIT_EFFECT_START_RADIUS, HIT_EFFECT_END_RADIUS * BOSS_HIT_EFFECT_MULTIPLIER)
+	else:
+		_spawn_hit_effect(enemy.global_position)
+	_update_boss_hp_bar()
 
 func _on_enemy_defeated(enemy: Enemy) -> void:
 	audio_manager.play_se("enemy_defeated")
 	_update_enemy_hp_label()
+	_update_boss_hp_bar()
 	if _are_all_enemies_defeated():
 		_start_stage_clear_sequence(enemy)
 	elif is_instance_valid(enemy):
@@ -1344,15 +1361,42 @@ func _start_next_battle_placeholder() -> void:
 func _get_ball_max_hp() -> int:
 	return BALL_HP_INITIAL
 
+func _create_boss_hp_bar() -> ProgressBar:
+	var bar: ProgressBar = ProgressBar.new()
+	bar.name = "BossHpBar"
+	bar.position = BOSS_HP_BAR_POSITION
+	bar.size = BOSS_HP_BAR_SIZE
+	bar.show_percentage = false
+	bar.visible = false
+	$UI.add_child(bar)
+	return bar
+
+func _create_boss_message_label() -> Label:
+	var label: Label = Label.new()
+	label.name = "BossMessageLabel"
+	label.position = Vector2(0.0, 74.0)
+	label.size = Vector2(VIEW_WIDTH, 44.0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 34)
+	label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.22, 1.0))
+	label.visible = false
+	$UI.add_child(label)
+	return label
+
+func _setup_boss_ui() -> void:
+	boss_hp_bar.visible = false
+	boss_message_label.visible = false
+
 func _update_enemy_hp_label() -> void:
 	var hp_parts: PackedStringArray = PackedStringArray()
 	for enemy: Enemy in enemies:
-		if is_instance_valid(enemy) and enemy.current_hp > 0:
+		if is_instance_valid(enemy) and enemy.current_hp > 0 and not enemy.is_boss():
 			hp_parts.append("%s HP: %d/%d" % [enemy.get_display_name(), enemy.current_hp, enemy.max_hp])
 	if hp_parts.is_empty():
 		enemy_hp_label.text = "Enemy HP: 0"
 	else:
 		enemy_hp_label.text = " | ".join(hp_parts)
+	_update_boss_hp_bar()
 
 func _update_combo_label() -> void:
 	combo_label.text = "Combo: %d" % combo_count
@@ -1651,6 +1695,8 @@ func _reset_battle() -> void:
 	_reset_combo_count()
 	_update_bonus_damage_label()
 	_update_enemy_hp_label()
+	_update_boss_hp_bar()
+	_show_boss_message_if_needed()
 	_update_assist_balls_label()
 	ball_hp_bar.max_value = _ball_hp
 	ball_hp_bar.value = _ball_hp
@@ -1723,7 +1769,8 @@ func _process(delta: float) -> void:
 		var bullet: Area2D = bullet_node
 		var velocity: Vector2 = bullet.get_meta("velocity", Vector2.ZERO)
 		bullet.global_position += velocity * delta
-		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (_ball_collision_radius + BULLET_COLLISION_RADIUS):
+		var bullet_radius: float = float(bullet.get_meta("radius", BULLET_COLLISION_RADIUS))
+		if _is_ball_alive and bullet.global_position.distance_to(ball.global_position) <= (_ball_collision_radius + bullet_radius):
 			_damage_ball(int(bullet.get_meta("damage", BULLET_DAMAGE)))
 			bullet.queue_free()
 			continue
@@ -1732,3 +1779,44 @@ func _process(delta: float) -> void:
 			continue
 		if bullet.global_position.y > FIELD_HEIGHT or bullet.global_position.x < -20.0 or bullet.global_position.x > FIELD_WIDTH + 20.0:
 			bullet.queue_free()
+
+func _find_alive_boss() -> Enemy:
+	for enemy: Enemy in enemies:
+		if is_instance_valid(enemy) and enemy.current_hp > 0 and enemy.is_boss():
+			return enemy
+	return null
+
+func _update_boss_hp_bar() -> void:
+	if not is_node_ready():
+		return
+	var boss: Enemy = _find_alive_boss()
+	if boss == null:
+		boss_hp_bar.visible = false
+		return
+	boss_hp_bar.visible = true
+	boss_hp_bar.min_value = 0
+	boss_hp_bar.max_value = boss.max_hp
+	boss_hp_bar.value = boss.current_hp
+
+func _show_boss_message_if_needed() -> void:
+	if _find_alive_boss() != null:
+		_show_boss_message("BOSS BATTLE")
+
+func _show_boss_message(message: String) -> void:
+	if _boss_message_tween != null and _boss_message_tween.is_valid():
+		_boss_message_tween.kill()
+	boss_message_label.text = message
+	boss_message_label.visible = true
+	boss_message_label.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	_boss_message_tween = create_tween()
+	_boss_message_tween.tween_interval(BOSS_MESSAGE_DURATION)
+	_boss_message_tween.tween_property(boss_message_label, "modulate", Color(1.0, 1.0, 1.0, 0.0), 0.25)
+	_boss_message_tween.tween_callback(func() -> void: boss_message_label.visible = false)
+
+func _on_boss_phase_two_started(enemy: Enemy) -> void:
+	if not is_instance_valid(enemy) or not enemy.is_boss():
+		return
+	audio_manager.play_se("boss_phase_two")
+	enemy.play_phase_two_animation()
+	_show_boss_message("PHASE 2")
+	_update_boss_hp_bar()

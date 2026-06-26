@@ -20,6 +20,9 @@ const STAGE_ENEMY_CONFIGS: Dictionary = {
 		{"position": Vector2(FIELD_CENTER_X - 120.0, 165.0), "enemy_type": "tank", "move_range": 120.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (48.0 / 1254.0)},
 		{"position": Vector2(FIELD_CENTER_X + 140.0, 175.0), "enemy_type": "basic", "move_range": 180.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (40.0 / 1254.0)},
 	],
+	"stage_boss_01": [
+		{"position": Vector2(FIELD_CENTER_X, 145.0), "enemy_type": "boss", "move_range": 360.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (64.0 / 1254.0)},
+	],
 }
 
 const STAGES: Dictionary = {
