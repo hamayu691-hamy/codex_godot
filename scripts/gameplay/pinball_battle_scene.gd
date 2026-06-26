@@ -93,6 +93,17 @@ const BUMPER_VISUAL_COLOR_BY_TYPE: Dictionary = {
 const BULLET_SPEED: float = 420.0
 const BULLET_DAMAGE: int = 2
 const BULLET_COLLISION_RADIUS: float = 7.0
+const BULLET_TYPE_NORMAL: String = "normal"
+const BULLET_TYPE_BOSS_FAN: String = "boss_fan"
+const BOSS_FAN_BURST_BULLET_COUNT: int = 3
+const BOSS_FAN_BURST_TOTAL_ANGLE_DEGREES: float = 36.0
+const BOSS_FAN_BURST_BULLET_SPEED: float = 300.0
+const BOSS_FAN_BURST_BULLET_DAMAGE: int = 2
+const BOSS_FAN_BURST_TELEGRAPH_DURATION: float = 0.25
+const BOSS_FAN_BURST_BULLET_RADIUS: float = 9.0
+const BOSS_FAN_BURST_BULLET_COLOR: Color = Color(1.0, 0.2, 0.85, 1.0)
+const BOSS_FAN_BURST_EFFECT_COLOR: Color = Color(1.0, 0.42, 0.95, 0.5)
+const MAX_ENEMY_BULLETS: int = 80
 const BOSS_HP_BAR_SIZE: Vector2 = Vector2(520.0, 18.0)
 const BOSS_HP_BAR_POSITION: Vector2 = Vector2(140.0, 20.0)
 const BOSS_MESSAGE_DURATION: float = 1.2
@@ -761,45 +772,106 @@ func _update_enemy_bullets(delta: float) -> void:
 	for enemy: Enemy in enemies:
 		if not is_instance_valid(enemy):
 			continue
-		if enemy.attack_type == "bullet" and enemy.should_fire_attack(delta):
+		if enemy.attack_type in ["bullet", "fan_burst"] and enemy.should_fire_attack(delta):
 			_spawn_enemy_bullet(enemy)
+		if enemy.should_fire_fan_burst(delta):
+			_start_boss_fan_burst(enemy)
 
 func _spawn_enemy_bullet(enemy: Enemy) -> void:
 	if not _is_ball_alive:
 		return
 	if not is_instance_valid(enemy):
 		return
-	var spawn_position: Vector2 = enemy.global_position
+	var to_ball: Vector2 = (ball.global_position - enemy.global_position).normalized()
+	if to_ball == Vector2.ZERO:
+		to_ball = Vector2.DOWN
+	_spawn_enemy_bullet_with_params(
+		enemy.global_position,
+		to_ball,
+		BULLET_SPEED,
+		enemy.bullet_damage,
+		enemy.bullet_radius,
+		enemy.bullet_color,
+		BULLET_TYPE_NORMAL
+	)
+
+func _start_boss_fan_burst(enemy: Enemy) -> void:
+	if enemy.get_meta("is_fan_burst_telegraphing", false):
+		return
+	_telegraph_and_spawn_boss_fan_burst(enemy)
+
+func _telegraph_and_spawn_boss_fan_burst(enemy: Enemy) -> void:
+	if not _is_ball_alive or not is_instance_valid(enemy) or not enemy.is_phase_two():
+		return
+	enemy.set_meta("is_fan_burst_telegraphing", true)
+	enemy.play_fan_burst_telegraph(BOSS_FAN_BURST_TELEGRAPH_DURATION)
+	await get_tree().create_timer(BOSS_FAN_BURST_TELEGRAPH_DURATION).timeout
+	if is_instance_valid(enemy):
+		enemy.set_meta("is_fan_burst_telegraphing", false)
+	if _is_victory or _is_game_over or not _is_ball_alive:
+		return
+	if not is_instance_valid(enemy) or enemy.is_defeated or not enemy.is_phase_two():
+		return
+	_spawn_boss_fan_burst(enemy)
+
+func _spawn_boss_fan_burst(enemy: Enemy) -> void:
+	var center_direction: Vector2 = (ball.global_position - enemy.global_position).normalized()
+	if center_direction == Vector2.ZERO:
+		center_direction = Vector2.DOWN
+	_spawn_boss_fan_burst_effect(enemy.global_position, center_direction)
+	audio_manager.play_se("boss_fan_burst")
+	var bullet_count: int = max(BOSS_FAN_BURST_BULLET_COUNT, 1)
+	var angle_step: float = 0.0
+	if bullet_count > 1:
+		angle_step = deg_to_rad(BOSS_FAN_BURST_TOTAL_ANGLE_DEGREES) / float(bullet_count - 1)
+	var start_angle: float = -angle_step * float(bullet_count - 1) * 0.5
+	for index: int in range(bullet_count):
+		if _get_active_enemy_bullet_count() >= MAX_ENEMY_BULLETS:
+			return
+		var direction: Vector2 = center_direction.rotated(start_angle + angle_step * float(index)).normalized()
+		_spawn_enemy_bullet_with_params(enemy.global_position, direction, BOSS_FAN_BURST_BULLET_SPEED, BOSS_FAN_BURST_BULLET_DAMAGE, BOSS_FAN_BURST_BULLET_RADIUS, BOSS_FAN_BURST_BULLET_COLOR, BULLET_TYPE_BOSS_FAN)
+
+func _spawn_enemy_bullet_with_params(spawn_position: Vector2, direction: Vector2, speed: float, damage: int, radius: float, color: Color, bullet_type: String) -> void:
+	if _get_active_enemy_bullet_count() >= MAX_ENEMY_BULLETS:
+		return
 	var bullet: Area2D = Area2D.new()
 	bullet.name = "EnemyBullet"
 	bullet.global_position = spawn_position
-	bullet.set_meta("damage", enemy.bullet_damage)
-	bullet.set_meta("radius", enemy.bullet_radius)
+	bullet.set_meta("damage", damage)
+	bullet.set_meta("radius", radius)
+	bullet.set_meta("bullet_type", bullet_type)
 	bullet.collision_layer = 0
 	bullet.collision_mask = 0
-
 	var collision: CollisionShape2D = CollisionShape2D.new()
 	var circle_shape: CircleShape2D = CircleShape2D.new()
-	circle_shape.radius = enemy.bullet_radius
+	circle_shape.radius = radius
 	collision.shape = circle_shape
 	bullet.add_child(collision)
-
 	var visual: Polygon2D = Polygon2D.new()
-	var bullet_radius: float = enemy.bullet_radius
-	visual.color = enemy.bullet_color
-	visual.polygon = PackedVector2Array([
-		Vector2(0.0, -bullet_radius),
-		Vector2(bullet_radius, 0.0),
-		Vector2(0.0, bullet_radius),
-		Vector2(-bullet_radius, 0.0),
-	])
+	visual.color = color
+	visual.polygon = PackedVector2Array([Vector2(0.0, -radius), Vector2(radius, 0.0), Vector2(0.0, radius), Vector2(-radius, 0.0)])
 	bullet.add_child(visual)
-
-	var to_ball: Vector2 = (ball.global_position - bullet.global_position).normalized()
-	if to_ball == Vector2.ZERO:
-		to_ball = Vector2.DOWN
-	bullet.set_meta("velocity", to_ball * BULLET_SPEED)
+	bullet.set_meta("velocity", direction.normalized() * speed)
 	bullets_root.add_child(bullet)
+
+func _get_active_enemy_bullet_count() -> int:
+	var count: int = 0
+	for child: Node in bullets_root.get_children():
+		if child is Area2D and not child.is_queued_for_deletion():
+			count += 1
+	return count
+
+func _spawn_boss_fan_burst_effect(origin: Vector2, direction: Vector2) -> void:
+	var effect: Polygon2D = Polygon2D.new()
+	effect.color = BOSS_FAN_BURST_EFFECT_COLOR
+	effect.global_position = origin
+	effect.rotation = direction.angle()
+	effect.polygon = PackedVector2Array([Vector2(12.0, 0.0), Vector2(42.0, -10.0), Vector2(42.0, 10.0)])
+	bullets_root.add_child(effect)
+	var tween: Tween = create_tween().set_parallel(true)
+	tween.tween_property(effect, "modulate", Color(1.0, 1.0, 1.0, 0.0), 0.18)
+	tween.tween_property(effect, "scale", Vector2.ONE * 1.35, 0.18)
+	tween.chain().tween_callback(func() -> void: effect.queue_free())
 
 func _on_drain_body_entered(body: Node2D) -> void:
 	if body == ball and _is_ball_alive:
