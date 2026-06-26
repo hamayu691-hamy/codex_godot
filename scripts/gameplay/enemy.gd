@@ -35,6 +35,7 @@ const BOSS_PHASE_ONE_COLOR: Color = Color(0.85, 0.18, 0.75, 1.0)
 const BOSS_PHASE_TWO_COLOR: Color = Color(1.0, 0.22, 0.12, 1.0)
 const BOSS_BULLET_COLOR: Color = Color(1.0, 0.2, 0.75, 1.0)
 const BOSS_BULLET_RADIUS: float = 10.0
+const BOSS_FAN_BURST_INTERVAL: float = 1.5
 const ENEMY_DEFINITIONS: Dictionary = {
 	TYPE_BASIC: {
 		"max_hp": 20,
@@ -83,6 +84,7 @@ const ENEMY_DEFEAT_SCALE_MULTIPLIER: float = 1.25
 const ENEMY_DEFEAT_FLASH_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
 
 var _attack_elapsed: float = 0.0
+var _fan_burst_elapsed: float = 0.0
 var is_defeated: bool = false
 var _is_playing_defeat_animation: bool = false
 
@@ -191,6 +193,17 @@ func should_fire_attack(delta: float) -> bool:
 
 func reset_attack_timer() -> void:
 	_attack_elapsed = 0.0
+	_fan_burst_elapsed = 0.0
+
+func should_fire_fan_burst(delta: float) -> bool:
+	if not can_attack() or not is_boss() or not _is_phase_two:
+		_fan_burst_elapsed = 0.0
+		return false
+	_fan_burst_elapsed += delta
+	if _fan_burst_elapsed >= BOSS_FAN_BURST_INTERVAL:
+		_fan_burst_elapsed = 0.0
+		return true
+	return false
 
 func apply_knockback(direction: Vector2, strength: float) -> void:
 	if is_defeated:
@@ -216,8 +229,10 @@ func reset_for_battle() -> void:
 		display_color = BOSS_PHASE_ONE_COLOR
 		bullet_color = BOSS_BULLET_COLOR
 		bullet_radius = BOSS_BULLET_RADIUS
+		attack_type = "bullet"
 		_apply_visual_color(display_color)
 	_attack_elapsed = 0.0
+	_fan_burst_elapsed = 0.0
 	_knockback_velocity = Vector2.ZERO
 	monitoring = true
 	monitorable = true
@@ -247,6 +262,7 @@ func play_defeat_animation() -> void:
 
 func _stop_defeated_enemy_activity() -> void:
 	_attack_elapsed = 0.0
+	_fan_burst_elapsed = 0.0
 	_knockback_velocity = Vector2.ZERO
 	monitoring = false
 	monitorable = false
@@ -265,6 +281,7 @@ func _try_start_phase_two() -> void:
 	move_speed = BOSS_PHASE_TWO_MOVE_SPEED
 	attack_interval = BOSS_PHASE_TWO_ATTACK_INTERVAL
 	bullet_damage = BOSS_PHASE_TWO_BULLET_DAMAGE
+	attack_type = "fan_burst"
 	display_color = BOSS_PHASE_TWO_COLOR
 	bullet_color = Color(1.0, 0.35, 0.12, 1.0)
 	_apply_visual_color(display_color)
@@ -280,6 +297,17 @@ func _apply_visual_color(color: Color) -> void:
 	var sprite: CanvasItem = get_node_or_null("EnemySprite") as CanvasItem
 	if sprite != null:
 		sprite.modulate = color
+
+func play_fan_burst_telegraph(duration: float) -> void:
+	if is_queued_for_deletion() or is_defeated:
+		return
+	var telegraph_scale: Vector2 = _base_scale * 1.08
+	var tween: Tween = create_tween().set_parallel(true)
+	tween.tween_property(self, "modulate", Color(1.9, 1.25, 2.2, 1.0), duration * 0.5)
+	tween.tween_property(self, "scale", telegraph_scale, duration * 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.chain()
+	tween.tween_property(self, "modulate", Color.WHITE, duration * 0.5)
+	tween.tween_property(self, "scale", _base_scale, duration * 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func play_phase_two_animation() -> void:
 	if is_queued_for_deletion():
