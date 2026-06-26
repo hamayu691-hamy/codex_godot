@@ -3,6 +3,7 @@ extends Area2D
 
 signal hit(enemy: Enemy, damage: int)
 signal defeated(enemy: Enemy)
+signal phase_two_started(enemy: Enemy)
 
 @export var max_hp: int = 20
 @export var current_hp: int = 20
@@ -20,6 +21,20 @@ signal defeated(enemy: Enemy)
 const TYPE_BASIC: String = "basic"
 const TYPE_SWIFT: String = "swift"
 const TYPE_TANK: String = "tank"
+const TYPE_BOSS: String = "boss"
+const BOSS_MAX_HP: int = 180
+const BOSS_PHASE_TWO_HP_RATE: float = 0.5
+const BOSS_PHASE_ONE_MOVE_SPEED: float = 28.0
+const BOSS_PHASE_TWO_MOVE_SPEED: float = 50.0
+const BOSS_PHASE_ONE_ATTACK_INTERVAL: float = 1.4
+const BOSS_PHASE_TWO_ATTACK_INTERVAL: float = 0.75
+const BOSS_PHASE_ONE_BULLET_DAMAGE: int = 2
+const BOSS_PHASE_TWO_BULLET_DAMAGE: int = 3
+const BOSS_SCALE: float = 1.6
+const BOSS_PHASE_ONE_COLOR: Color = Color(0.85, 0.18, 0.75, 1.0)
+const BOSS_PHASE_TWO_COLOR: Color = Color(1.0, 0.22, 0.12, 1.0)
+const BOSS_BULLET_COLOR: Color = Color(1.0, 0.2, 0.75, 1.0)
+const BOSS_BULLET_RADIUS: float = 10.0
 const ENEMY_DEFINITIONS: Dictionary = {
 	TYPE_BASIC: {
 		"max_hp": 20,
@@ -48,6 +63,19 @@ const ENEMY_DEFINITIONS: Dictionary = {
 		"color": Color(0.75, 0.55, 0.25, 1.0),
 		"score_value": 180,
 	},
+	TYPE_BOSS: {
+		"max_hp": BOSS_MAX_HP,
+		"move_speed": BOSS_PHASE_ONE_MOVE_SPEED,
+		"bullet_damage": BOSS_PHASE_ONE_BULLET_DAMAGE,
+		"attack_interval": BOSS_PHASE_ONE_ATTACK_INTERVAL,
+		"attack_type": "bullet",
+		"color": BOSS_PHASE_ONE_COLOR,
+		"score_value": 1000,
+		"move_range": 360.0,
+		"scale": Vector2.ONE * BOSS_SCALE,
+		"bullet_color": BOSS_BULLET_COLOR,
+		"bullet_radius": BOSS_BULLET_RADIUS,
+	},
 }
 
 const ENEMY_DEFEAT_FADE_DURATION: float = 0.6
@@ -61,6 +89,10 @@ var _is_playing_defeat_animation: bool = false
 var _start_position: Vector2 = Vector2.ZERO
 var _move_direction: float = 1.0
 var _knockback_velocity: Vector2 = Vector2.ZERO
+var _base_scale: Vector2 = Vector2.ONE
+var _is_phase_two: bool = false
+var bullet_color: Color = Color(1.0, 0.4, 0.35, 1.0)
+var bullet_radius: float = 7.0
 const KNOCKBACK_DAMPING: float = 7.5
 
 static func get_definition(type_name: String) -> Dictionary:
@@ -83,12 +115,26 @@ func apply_config(config: Dictionary) -> void:
 	attack_type = str(config.get("attack_type", definition.get("attack_type", attack_type)))
 	attack_interval = float(config.get("attack_interval", definition.get("attack_interval", attack_interval)))
 	display_color = config.get("color", definition.get("color", display_color))
+	bullet_color = config.get("bullet_color", definition.get("bullet_color", bullet_color))
+	bullet_radius = float(config.get("bullet_radius", definition.get("bullet_radius", bullet_radius)))
+	var configured_scale: Variant = config.get("scale", definition.get("scale", scale))
+	if configured_scale is Vector2:
+		scale = configured_scale
+	elif configured_scale is float:
+		scale = Vector2.ONE * float(configured_scale)
 
 func get_display_name() -> String:
 	return enemy_type.capitalize()
 
+func is_boss() -> bool:
+	return enemy_type == TYPE_BOSS
+
+func is_phase_two() -> bool:
+	return _is_phase_two
+
 func _ready() -> void:
 	_start_position = global_position
+	_base_scale = scale
 	if current_hp <= 0:
 		current_hp = max_hp
 
@@ -123,6 +169,7 @@ func take_damage(damage: int) -> void:
 		return
 	current_hp -= damage
 	hit.emit(self, damage)
+	_try_start_phase_two()
 	if current_hp <= 0:
 		current_hp = 0
 		is_defeated = true
@@ -160,6 +207,16 @@ func reset_for_battle() -> void:
 	is_defeated = false
 	_is_playing_defeat_animation = false
 	modulate = Color.WHITE
+	scale = _base_scale
+	_is_phase_two = false
+	if is_boss():
+		move_speed = BOSS_PHASE_ONE_MOVE_SPEED
+		attack_interval = BOSS_PHASE_ONE_ATTACK_INTERVAL
+		bullet_damage = BOSS_PHASE_ONE_BULLET_DAMAGE
+		display_color = BOSS_PHASE_ONE_COLOR
+		bullet_color = BOSS_BULLET_COLOR
+		bullet_radius = BOSS_BULLET_RADIUS
+		_apply_visual_color(display_color)
 	_attack_elapsed = 0.0
 	_knockback_velocity = Vector2.ZERO
 	monitoring = true
@@ -198,3 +255,39 @@ func _stop_defeated_enemy_activity() -> void:
 		var collision_shape: CollisionShape2D = child as CollisionShape2D
 		if collision_shape != null:
 			collision_shape.set_deferred("disabled", true)
+
+func _try_start_phase_two() -> void:
+	if not is_boss() or _is_phase_two or current_hp <= 0:
+		return
+	if float(current_hp) >= float(max_hp) * BOSS_PHASE_TWO_HP_RATE:
+		return
+	_is_phase_two = true
+	move_speed = BOSS_PHASE_TWO_MOVE_SPEED
+	attack_interval = BOSS_PHASE_TWO_ATTACK_INTERVAL
+	bullet_damage = BOSS_PHASE_TWO_BULLET_DAMAGE
+	display_color = BOSS_PHASE_TWO_COLOR
+	bullet_color = Color(1.0, 0.35, 0.12, 1.0)
+	_apply_visual_color(display_color)
+	phase_two_started.emit(self)
+
+func _apply_visual_color(color: Color) -> void:
+	var visual: CanvasItem = get_node_or_null("EnemyVisual") as CanvasItem
+	if visual != null:
+		visual.modulate = Color.WHITE
+		if visual is Polygon2D:
+			var polygon_visual: Polygon2D = visual
+			polygon_visual.color = color
+	var sprite: CanvasItem = get_node_or_null("EnemySprite") as CanvasItem
+	if sprite != null:
+		sprite.modulate = color
+
+func play_phase_two_animation() -> void:
+	if is_queued_for_deletion():
+		return
+	var tween: Tween = create_tween()
+	tween.tween_property(self, "modulate", Color(2.2, 2.2, 2.2, 1.0), 0.08)
+	tween.parallel().tween_property(self, "scale", _base_scale * 1.18, 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "modulate", Color.WHITE, 0.08)
+	tween.parallel().tween_property(self, "scale", _base_scale, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "modulate", Color(1.6, 0.6, 0.6, 1.0), 0.08)
+	tween.tween_property(self, "modulate", Color.WHITE, 0.12)

@@ -14,6 +14,7 @@ const SE_PATHS: Dictionary = {
 	"bumper_level_up": "res://assets/audio/se/bumper_level_up.ogg",
 	"fever_start": "res://assets/audio/se/bumper_level_up.ogg",
 	"fever_end": "res://assets/audio/se/reward_select.ogg",
+	"boss_phase_two": "res://assets/audio/se/enemy_defeated.ogg",
 	"victory": "res://assets/audio/se/victory.ogg",
 	"game_over": "res://assets/audio/se/game_over.ogg",
 }
