@@ -50,6 +50,14 @@ const CLEAR_CAMERA_ZOOM: Vector2 = Vector2(1.25, 1.25)
 const CLEAR_CAMERA_FOCUS_DURATION: float = 0.8
 const CLEAR_REWARD_DELAY: float = 0.3
 const CLEAR_EFFECT_COLOR: Color = Color(1.0, 0.85, 0.25, 0.95)
+const FEVER_TRIGGER_BUMPER_HITS: int = 15
+const FEVER_DURATION: float = 5.0
+const FEVER_COMBO_GAIN_MULTIPLIER: int = 2
+const FEVER_SUMMON_BALL_BONUS_COUNT: int = 1
+const FEVER_BUMPER_COOLDOWN_MULTIPLIER: float = 0.55
+const FEVER_HIT_EFFECT_MULTIPLIER: float = 1.45
+const FEVER_BACKGROUND_MODULATE: Color = Color(1.18, 1.12, 0.82, 1.0)
+const FEVER_EFFECT_COLOR: Color = Color(1.0, 0.82, 0.18, 0.95)
 const CLEAR_EFFECT_END_RADIUS: float = 70.0
 # Minimum angular speed (rad/s) to treat the flipper as actively striking. Tune for feel.
 const FLIPPER_ACTIVE_ANGULAR_SPEED_THRESHOLD: float = 3.0
@@ -151,6 +159,8 @@ const BUMPER_VISUAL_POINTS: Array[Vector2] = [
 @onready var bonus_damage_label: Label = $UI/BonusDamageLabel
 @onready var assist_balls_label: Label = $UI/AssistBallsLabel
 @onready var status_label: Label = $UI/StatusLabel
+@onready var fever_label: Label = $UI/FeverLabel
+@onready var fever_time_label: Label = $UI/FeverTimeLabel
 @onready var victory_label: Label = $UI/VictoryLabel
 @onready var game_over_label: Label = $UI/GameOverLabel
 @onready var reward_panel: Panel = $UI/RewardPanel
@@ -203,11 +213,16 @@ var _player_damage_shake_tween: Tween
 var _ball_visual_base_modulates: Dictionary = {}
 var _stage_clear_sequence_id: int = 0
 var _camera_default_zoom: Vector2 = Vector2.ONE
+var _bumper_hit_count: int = 0
+var _is_fever_active: bool = false
+var _fever_remaining: float = 0.0
+var _background_base_modulate: Color = Color.WHITE
 
 func _ready() -> void:
 	_load_stage_config("stage_01")
 	_field_builder = FieldBuilder.new(PIN_COLLISION_RADIUS, BUMPER_COLLISION_RADIUS, ENEMY_COLLISION_RADIUS, BUMPER_VISUAL_COLOR, BUMPER_VISUAL_COLOR_BY_TYPE, BUMPER_VISUAL_POINTS, ENEMY_VISUAL_COLOR, ENEMY_HP_INITIAL)
 	_setup_background()
+	_setup_fever_ui()
 	_setup_ball_visual()
 	_spawn_flippers()
 	_setup_camera()
@@ -258,6 +273,7 @@ func _to_dictionary_array(value: Variant) -> Array[Dictionary]:
 
 
 func _setup_background() -> void:
+	_background_base_modulate = background_root.modulate
 	for child: Node in background_root.get_children():
 		child.queue_free()
 	background_root.z_index = BACKGROUND_Z_INDEX
@@ -289,6 +305,12 @@ func _add_fallback_background() -> void:
 		Vector2(0.0, FIELD_HEIGHT),
 	])
 	background_root.add_child(fallback_background)
+
+func _setup_fever_ui() -> void:
+	fever_label.visible = false
+	fever_time_label.visible = false
+	fever_label.add_theme_color_override("font_color", FEVER_EFFECT_COLOR)
+	fever_time_label.add_theme_color_override("font_color", FEVER_EFFECT_COLOR)
 
 func _setup_ball_visual() -> void:
 	var ball_visual: Node = ball.get_node_or_null("BallVisual")
@@ -663,6 +685,7 @@ func _find_replaceable_pin_at_position(screen_position: Vector2) -> Pin:
 
 func _physics_process(delta: float) -> void:
 	_update_camera_follow(delta)
+	_update_fever(delta)
 	if DEBUG_ENABLE_ENEMY_ZERO_HP_COMMAND:
 		var is_debug_key_down: bool = Input.is_key_pressed(DEBUG_ENEMY_ZERO_HP_KEY)
 		if is_debug_key_down and not _debug_enemy_zero_hp_key_was_down:
@@ -839,13 +862,14 @@ func _on_bumper_hit(bumper: Bumper, bumper_type: String, _damage: int, hit_ball:
 	if _is_victory or _is_game_over:
 		return
 	audio_manager.play_se("bumper_hit")
+	_register_bumper_hit_for_fever(bumper)
 	_apply_bumper_effect(bumper, hit_ball)
 	if hit_ball is AssistBall:
 		var assist_ball: AssistBall = hit_ball
 		if assist_ball.grants_combo_on_bumper_hit():
-			combo_count += 1
+			combo_count += _get_fever_combo_gain(1)
 	if bumper_type == "summon_ball":
-		for _summon_index: int in BumperLevelTable.get_summon_ball_count(bumper.level):
+		for _summon_index: int in _get_fever_summon_ball_count(BumperLevelTable.get_summon_ball_count(bumper.level)):
 			_spawn_assist_ball(bumper, bumper.summon_assist_ball_type)
 	_update_combo_label()
 	_update_bonus_damage_label()
@@ -1351,6 +1375,9 @@ func _update_status_label() -> void:
 		"Next Bonus Damage: +%d" % _next_enemy_hit_bonus_damage,
 		"Assist Balls: %d / %d" % [_get_active_assist_ball_count(), ASSIST_BALL_MAX_COUNT],
 	]
+	status_lines.append("Fever Hits: %d / %d" % [_bumper_hit_count, FEVER_TRIGGER_BUMPER_HITS])
+	if _is_fever_active:
+		status_lines.append("FEVER: %.1fs" % _fever_remaining)
 	if _slow_effect_multiplier > 1.0:
 		status_lines.append("Slow Boost: x%.2f" % _slow_effect_multiplier)
 	status_label.text = "\n".join(status_lines)
@@ -1364,6 +1391,84 @@ func _get_battle_status_text() -> String:
 		return "Ball Down"
 	return "In Battle"
 
+func _register_bumper_hit_for_fever(bumper: Bumper) -> void:
+	if _is_fever_active:
+		_spawn_hit_effect(bumper.global_position, FEVER_EFFECT_COLOR, HIT_EFFECT_DURATION * FEVER_HIT_EFFECT_MULTIPLIER, HIT_EFFECT_START_RADIUS, HIT_EFFECT_END_RADIUS * FEVER_HIT_EFFECT_MULTIPLIER)
+		return
+	_bumper_hit_count += 1
+	if _bumper_hit_count >= FEVER_TRIGGER_BUMPER_HITS:
+		_start_fever()
+	_update_fever_ui()
+
+func _start_fever() -> void:
+	if _is_fever_active:
+		return
+	_is_fever_active = true
+	_fever_remaining = FEVER_DURATION
+	background_root.modulate = FEVER_BACKGROUND_MODULATE
+	audio_manager.play_se("fever_start")
+	_apply_fever_to_bumpers()
+	_update_fever_ui()
+
+func _update_fever(delta: float) -> void:
+	if not _is_fever_active:
+		return
+	_fever_remaining = max(_fever_remaining - delta, 0.0)
+	if _fever_remaining <= 0.0:
+		_end_fever()
+	else:
+		_update_fever_ui()
+
+func _end_fever() -> void:
+	if not _is_fever_active:
+		return
+	_is_fever_active = false
+	_fever_remaining = 0.0
+	_bumper_hit_count = 0
+	background_root.modulate = _background_base_modulate
+	audio_manager.play_se("fever_end")
+	_apply_fever_to_bumpers()
+	_update_fever_ui()
+
+func _apply_fever_to_bumpers() -> void:
+	var cooldown_multiplier: float = 1.0
+	var hit_feedback_multiplier: float = 1.0
+	if _is_fever_active:
+		cooldown_multiplier = FEVER_BUMPER_COOLDOWN_MULTIPLIER
+		hit_feedback_multiplier = FEVER_HIT_EFFECT_MULTIPLIER
+	for bumper: Bumper in bumpers:
+		if is_instance_valid(bumper):
+			bumper.cooldown_multiplier = cooldown_multiplier
+			bumper.hit_feedback_multiplier = hit_feedback_multiplier
+
+func _update_fever_ui() -> void:
+	if not is_node_ready():
+		return
+	fever_label.visible = _is_fever_active
+	fever_time_label.visible = _is_fever_active
+	if _is_fever_active:
+		fever_label.text = "FEVER"
+		fever_time_label.text = "%.1fs" % _fever_remaining
+	_update_status_label()
+
+func _get_fever_combo_gain(base_gain: int) -> int:
+	if _is_fever_active:
+		return base_gain * FEVER_COMBO_GAIN_MULTIPLIER
+	return base_gain
+
+func _get_fever_summon_ball_count(base_count: int) -> int:
+	if _is_fever_active:
+		return base_count + FEVER_SUMMON_BALL_BONUS_COUNT
+	return base_count
+
+func _reset_fever_state() -> void:
+	_is_fever_active = false
+	_fever_remaining = 0.0
+	_bumper_hit_count = 0
+	background_root.modulate = _background_base_modulate
+	_apply_fever_to_bumpers()
+	_update_fever_ui()
+
 func _reset_combo_count() -> void:
 	combo_count = 0
 	_update_combo_label()
@@ -1371,9 +1476,9 @@ func _reset_combo_count() -> void:
 func _apply_bumper_effect(bumper: Bumper, hit_ball: RigidBody2D) -> void:
 	match bumper.bumper_type:
 		"normal":
-			combo_count += BumperLevelTable.get_normal_combo_gain(bumper.level)
+			combo_count += _get_fever_combo_gain(BumperLevelTable.get_normal_combo_gain(bumper.level))
 		"power":
-			combo_count += BumperLevelTable.get_power_combo_gain(bumper.level)
+			combo_count += _get_fever_combo_gain(BumperLevelTable.get_power_combo_gain(bumper.level))
 			var power_amount: int = BumperLevelTable.get_power_bonus_damage(bumper.level)
 			if hit_ball is AssistBall:
 				var power_assist_ball: AssistBall = hit_ball
@@ -1394,12 +1499,12 @@ func _apply_bumper_effect(bumper: Bumper, hit_ball: RigidBody2D) -> void:
 		"slow":
 			_apply_slow_bumper_velocity(hit_ball, BumperLevelTable.get_slow_rate(bumper.level))
 		"aim":
-			combo_count += 1
+			combo_count += _get_fever_combo_gain(1)
 			_apply_aim_bumper_effect(bumper, hit_ball)
 		"summon_ball":
-			combo_count += 1
+			combo_count += _get_fever_combo_gain(1)
 		_:
-			combo_count += 1
+			combo_count += _get_fever_combo_gain(1)
 
 func _apply_aim_bumper_effect(bumper: Bumper, target_ball: RigidBody2D) -> void:
 	if _is_victory or _is_game_over:
@@ -1536,6 +1641,7 @@ func _reset_battle() -> void:
 	_is_game_over = false
 	_is_ball_alive = true
 	_spawn_bumpers()
+	_reset_fever_state()
 	_reset_enemies_for_battle()
 	_hovered_bumper = null
 	bumper_tooltip_panel.visible = false

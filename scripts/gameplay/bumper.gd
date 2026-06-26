@@ -87,6 +87,8 @@ const BUMPER_EFFECT_DESCRIPTIONS: Dictionary = {
 		_recalculate_stats()
 @export_enum("normal", "attack", "shield", "combo", "bomb") var summon_assist_ball_type: String = "normal"
 @export var cooldown_time: float = 0.08
+@export var cooldown_multiplier: float = 1.0
+@export var hit_feedback_multiplier: float = 1.0
 
 var _cooldown_remaining: float = 0.0
 var _scale_tween: Tween = null
@@ -116,7 +118,7 @@ func _physics_process(delta: float) -> void:
 func on_ball_entered(ball: RigidBody2D) -> void:
 	if _cooldown_remaining > 0.0:
 		return
-	_cooldown_remaining = cooldown_time
+	_cooldown_remaining = cooldown_time * cooldown_multiplier
 	_update_cooldown_display()
 	_apply_impulse_to_ball(ball)
 	_apply_bumper_effect(ball)
@@ -312,8 +314,9 @@ func _play_hit_feedback() -> void:
 		_flash_tween.tween_property(feedback_target, "modulate", flash_color, 0.06)
 		_flash_tween.tween_property(feedback_target, "modulate", base_modulate, 0.12)
 
+	var target_scale: Vector2 = Vector2.ONE.lerp(HIT_SCALE, hit_feedback_multiplier)
 	_scale_tween = create_tween()
-	_scale_tween.tween_property(self, "scale", HIT_SCALE, 0.07)
+	_scale_tween.tween_property(self, "scale", target_scale, 0.07)
 	_scale_tween.tween_property(self, "scale", Vector2.ONE, 0.12)
 
 func _get_feedback_visual_target() -> CanvasItem:
