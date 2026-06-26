@@ -8,6 +8,12 @@ const VIEW_HEIGHT: float = 700.0
 const SLOPE_WALL_MIN_THICKNESS: float = 25.0
 const FIELD_CENTER_X: float = FIELD_WIDTH * 0.5
 
+const STAGE_LOOP_IDS: Array[String] = ["stage_01", "stage_boss_01"]
+const STAGE_DISPLAY_NAMES: Dictionary = {
+	"stage_01": "Stage 1",
+	"stage_boss_01": "Boss Stage",
+}
+
 const STAGE_ENEMY_CONFIGS: Dictionary = {
 	"stage_01": [
 		{"position": Vector2(FIELD_CENTER_X, 170.0), "enemy_type": "basic", "move_range": 260.0, "sprite_path": "res://gazou/enemy_0.png", "sprite_scale": Vector2.ONE * (40.0 / 1254.0)},
@@ -152,3 +158,9 @@ static func get_stage_enemy_configs(stage_id: String = "stage_01") -> Array:
 	if configs.is_empty():
 		configs = STAGE_ENEMY_CONFIGS["stage_01"]
 	return configs.duplicate(true)
+
+static func get_stage_loop_ids() -> Array[String]:
+	return STAGE_LOOP_IDS.duplicate()
+
+static func get_stage_display_name(stage_id: String) -> String:
+	return str(STAGE_DISPLAY_NAMES.get(stage_id, stage_id))
