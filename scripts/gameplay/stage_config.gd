@@ -1,10 +1,14 @@
 extends RefCounted
 class_name StageConfig
 
+# Stage coordinates are authored in field-space pixels. The origin is the
+# top-left of the play field, X increases to the right, and Y increases down.
 const FIELD_WIDTH: float = 1200.0
 const FIELD_HEIGHT: float = 700.0
 const VIEW_WIDTH: float = 800.0
 const VIEW_HEIGHT: float = 700.0
+# Minimum collision thickness applied to sloped guide walls so that shallow
+# rotations do not make the playable edge too thin for stable ball contacts.
 const SLOPE_WALL_MIN_THICKNESS: float = 25.0
 const FIELD_CENTER_X: float = FIELD_WIDTH * 0.5
 
@@ -133,13 +137,22 @@ const STAGES: Dictionary = {
 			{"position": Vector2(720.0, 325.0), "pin_id": "pin_05", "slot_id": "slot_05", "replaceable": true, "occupied": false, "impulse_strength": 90.0, "sprite_path": "", "sprite_scale": Vector2.ONE},
 		],
 		"wall_configs": [
+			# Side walls sit just inside the left/right field edges and are tilted
+			# slightly inward to keep the ball flowing back toward the stage center.
 			{"name": "LeftWall", "position": Vector2(20.0, FIELD_HEIGHT * 0.5), "size": Vector2(20.0, FIELD_HEIGHT), "rotation": -0.08, "color": Color(0.4, 0.45, 0.55, 1.0), "bounce": 0.75, "friction": 0.05, "sprite_path": "", "sprite_scale": Vector2.ONE},
 			{"name": "RightWall", "position": Vector2(FIELD_WIDTH - 20.0, FIELD_HEIGHT * 0.5), "size": Vector2(20.0, FIELD_HEIGHT), "rotation": 0.08, "color": Color(0.4, 0.45, 0.55, 1.0), "bounce": 0.75, "friction": 0.05, "sprite_path": "", "sprite_scale": Vector2.ONE},
+			# Top wall spans the full play field width and closes the upper lane.
 			{"name": "TopWall", "position": Vector2(FIELD_CENTER_X, 20.0), "size": Vector2(FIELD_WIDTH, 20.0), "rotation": 0.0, "color": Color(0.4, 0.45, 0.55, 1.0), "bounce": 0.75, "friction": 0.05, "sprite_path": "", "sprite_scale": Vector2.ONE},
+			# Flipper guide walls form the lower funnel. Their centers are offset
+			# 270 px from FIELD_CENTER_X and rotated toward the flippers so misses
+			# roll back into the reachable lower play area.
 			{"name": "LeftFlipperGuideWall", "position": Vector2(FIELD_CENTER_X - 270.0, 625.0), "size": Vector2(520.0, 18.0), "rotation": 0.42, "is_slope": true, "min_thickness": SLOPE_WALL_MIN_THICKNESS, "color": Color(0.4, 0.45, 0.55, 1.0), "bounce": 0.75, "friction": 0.05, "sprite_path": "", "sprite_scale": Vector2.ONE},
 			{"name": "RightFlipperGuideWall", "position": Vector2(FIELD_CENTER_X + 270.0, 625.0), "size": Vector2(520.0, 18.0), "rotation": -0.42, "is_slope": true, "min_thickness": SLOPE_WALL_MIN_THICKNESS, "color": Color(0.4, 0.45, 0.55, 1.0), "bounce": 0.75, "friction": 0.05, "sprite_path": "", "sprite_scale": Vector2.ONE},
 		],
 		"flipper_configs": [
+			# Flipper pivots are centered 50 px left/right of FIELD_CENTER_X near
+			# the bottom of the field. Offsets move collision/visual shapes away
+			# from the pivot, creating the lever arm used for pinball-style hits.
 			{"name": "LeftFlipper", "position": Vector2(FIELD_CENTER_X - 50.0, 640.0), "collision_offset": Vector2(45.0, 0.0), "visual_offset": Vector2(45.0, 0.0), "size": Vector2(110.0, 16.0), "rest_rotation": -0.35, "active_rotation": -1.0, "rotate_speed": 14.0, "input_key": KEY_LEFT, "side": -1.0, "hit_impulse": 1600.0, "color": Color(0.95, 0.5, 0.35, 1.0)},
 			{"name": "RightFlipper", "position": Vector2(FIELD_CENTER_X + 50.0, 640.0), "collision_offset": Vector2(-45.0, 0.0), "visual_offset": Vector2(-45.0, 0.0), "size": Vector2(110.0, 16.0), "rest_rotation": 0.35, "active_rotation": 1.0, "rotate_speed": 14.0, "input_key": KEY_RIGHT, "side": 1.0, "hit_impulse": 1600.0, "color": Color(0.95, 0.5, 0.35, 1.0)},
 		],
