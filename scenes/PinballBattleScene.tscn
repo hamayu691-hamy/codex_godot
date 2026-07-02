@@ -1,7 +1,7 @@
-[gd_scene load_steps=6 format=3 uid="uid://dqq6k00rvb77v"]
+[gd_scene load_steps=5 format=3 uid="uid://dqq6k00rvb77v"]
 
 [ext_resource type="Script" uid="uid://hgixufw5vj5i" path="res://scripts/gameplay/pinball_battle_scene.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/core/audio_manager.gd" id="2_audio_manager"]
+[ext_resource type="Script" uid="uid://2najkwmnbdp0" path="res://scripts/core/audio_manager.gd" id="2_audio_manager"]
 
 [sub_resource type="PhysicsMaterial" id="6"]
 friction = 0.05
@@ -9,9 +9,6 @@ bounce = 0.75
 
 [sub_resource type="RectangleShape2D" id="1"]
 size = Vector2(24, 24)
-
-[sub_resource type="RectangleShape2D" id="5"]
-size = Vector2(160, 20)
 
 [node name="PinballBattleScene" type="Node2D"]
 script = ExtResource("1")
@@ -61,13 +58,6 @@ show_percentage = false
 
 [node name="Drain" type="Area2D" parent="."]
 position = Vector2(600, 680)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Drain"]
-shape = SubResource("5")
-
-[node name="DrainVisual" type="Polygon2D" parent="Drain"]
-color = Color(0.8, 0.2, 0.25, 0.65)
-polygon = PackedVector2Array(-80, -10, 80, -10, 80, 10, -80, 10)
 
 [node name="Walls" type="Node2D" parent="."]
 
@@ -124,7 +114,10 @@ offset_top = 128.0
 offset_right = 310.0
 offset_bottom = 228.0
 theme_override_font_sizes/font_size = 16
-text = "Status: In Battle\nCombo: 0\nNext Bonus Damage: +0\nAssist Balls: 0 / 5"
+text = "Status: In Battle
+Combo: 0
+Next Bonus Damage: +0
+Assist Balls: 0 / 5"
 
 [node name="FeverLabel" type="Label" parent="UI"]
 visible = false
@@ -132,10 +125,10 @@ offset_left = 440.0
 offset_top = 28.0
 offset_right = 760.0
 offset_bottom = 88.0
-theme_override_font_sizes/font_size = 56
 theme_override_colors/font_color = Color(1, 0.82, 0.18, 1)
 theme_override_colors/font_outline_color = Color(0.18, 0.05, 0, 1)
 theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 56
 text = "FEVER"
 horizontal_alignment = 1
 
@@ -145,10 +138,10 @@ offset_left = 520.0
 offset_top = 88.0
 offset_right = 680.0
 offset_bottom = 124.0
-theme_override_font_sizes/font_size = 30
 theme_override_colors/font_color = Color(1, 0.82, 0.18, 1)
 theme_override_colors/font_outline_color = Color(0.18, 0.05, 0, 1)
 theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 30
 text = "5.0s"
 horizontal_alignment = 1
 
