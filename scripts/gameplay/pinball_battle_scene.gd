@@ -554,7 +554,7 @@ func _try_attach_sprite(parent_node: Node2D, config: Dictionary, fallback_visual
 	if sprite_path.is_empty():
 		fallback_visual.visible = true
 		return
-	var texture: Texture2D = load(sprite_path) as Texture2D
+	var texture: Texture2D = _load_texture_for_sprite(sprite_path)
 	if texture == null:
 		fallback_visual.visible = true
 		return
@@ -566,6 +566,12 @@ func _try_attach_sprite(parent_node: Node2D, config: Dictionary, fallback_visual
 	sprite.scale = _get_sprite_scale(config)
 	parent_node.add_child(sprite)
 	fallback_visual.visible = false
+
+func _load_texture_for_sprite(sprite_path: String) -> Texture2D:
+	var image: Image = Image.load_from_file(sprite_path)
+	if image != null and not image.is_empty():
+		return ImageTexture.create_from_image(image)
+	return load(sprite_path) as Texture2D
 
 func _get_sprite_scale(config: Dictionary) -> Vector2:
 	var scale_value: Variant = config.get("sprite_scale", DEFAULT_SPRITE_SCALE)
